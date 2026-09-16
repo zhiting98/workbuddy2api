@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>安装向导 · WorkBuddy2API</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #171a23; --card2: #1e222d; --line: #2a2f3a;
+    --txt: #e6e9ef; --dim: #8b93a7; --acc: #4f8cff; --ok: #2fbf71;
+    --warn: #f5a623; --err: #ef4a5b; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--txt); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; padding: 32px 16px; display: flex; justify-content: center; }
+  .wrap { width: 100%; max-width: 560px; }
+  header { margin-bottom: 22px; }
+  h1 { font-size: 21px; font-weight: 650; margin-bottom: 6px; }
+  .sub { color: var(--dim); font-size: 13px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--dim); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 14px; }
+  label { display: block; font-size: 12.5px; color: var(--dim); margin-bottom: 6px; margin-top: 14px; }
+  label:first-of-type { margin-top: 0; }
+  input[type=text], input[type=password] { width: 100%; background: var(--card2); border: 1px solid var(--line); border-radius: 8px; color: var(--txt); font-size: 13.5px; padding: 10px 12px; font-family: inherit; }
+  input:focus { outline: none; border-color: var(--acc); }
+  .hint { color: var(--dim); font-size: 11.5px; margin-top: 6px; line-height: 1.6; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row input { flex: 1; }
+  .sbtn { background: var(--card2); border: 1px solid var(--line); color: var(--txt); border-radius: 8px; padding: 9px 14px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+  .sbtn:hover { border-color: var(--acc); color: var(--acc); }
+  .gbtn { background: var(--acc); color: #fff; border: none; border-radius: 8px; padding: 11px 20px; font-size: 13.5px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 18px; }
+  .gbtn:hover { filter: brightness(1.1); }
+  .gbtn:disabled { background: var(--line); color: var(--dim); cursor: not-allowed; }
+  .chk { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 12.5px; color: var(--dim); }
+  .chk input { width: auto; }
+  .note { background: rgba(79,140,255,.10); border: 1px solid rgba(79,140,255,.35); border-radius: 8px; padding: 11px 13px; font-size: 12.5px; line-height: 1.7; color: #bcd4ff; margin-bottom: 14px; }
+  .warn-note { background: rgba(245,166,35,.10); border: 1px solid rgba(245,166,35,.4); border-radius: 8px; padding: 11px 13px; font-size: 12.5px; line-height: 1.7; color: #ffd79a; margin-bottom: 14px; }
+  code { background: var(--card2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-family: var(--mono); font-size: 11.5px; }
+  .err-box { background: rgba(239,74,91,.12); border: 1px solid var(--err); color: #ffb3bb; padding: 11px 13px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; display: none; }
+  /* 成功页 */
+  .done-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .done-row:last-child { border-bottom: none; }
+  .done-row .k { color: var(--dim); font-size: 12.5px; width: 92px; flex-shrink: 0; }
+  .done-row .v { font-family: var(--mono); font-size: 12.5px; word-break: break-all; flex: 1; }
+  .cp { background: var(--card2); border: 1px solid var(--line); color: var(--acc); border-radius: 6px; padding: 3px 10px; font-size: 11.5px; cursor: pointer; }
+  .cp:hover { border-color: var(--acc); }
+  .new { color: var(--ok); font-size: 11px; margin-left: 6px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🛠️ WorkBuddy2API 安装向导</h1>
+    <div class="sub">首次启动需完成初始化：设置看板登录凭据，并生成网关访问密钥。</div>
+  </header>
+
+  <div id="err" class="err-box"></div>
+
+  <!-- 步骤一：填写 -->
+  <div id="formStep">
+    <section>
+      <h2>① 看板登录凭据</h2>
+      <label for="user">用户名</label>
+      <input type="text" id="user" value="admin" autocomplete="username">
+
+      <label for="pass">密码</label>
+      <div class="row">
+        <input type="password" id="pass" placeholder="留空则自动生成强随机密码" autocomplete="new-password">
+        <button class="sbtn" id="genPass" type="button">随机生成</button>
+      </div>
+      <div class="hint">用于登录管理看板（浏览器会弹原生登录框）。至少 6 位。</div>
+    </section>
+
+    <section>
+      <h2>② 网关访问密钥（api_key）</h2>
+      <label for="apikey">API Key</label>
+      <div class="row">
+        <input type="text" id="apikey" placeholder="留空则自动生成" spellcheck="false">
+        <button class="sbtn" id="genKey" type="button">随机生成</button>
+      </div>
+      <div class="hint">
+        客户端（Codex / Claude Code / SDK）调用 <code>/v1/*</code> 时使用：
+        <code>Authorization: Bearer &lt;key&gt;</code> 或 <code>x-api-key: &lt;key&gt;</code>。
+        留空自动生成 48 位随机串。
+      </div>
+    </section>
+
+    <div class="note">
+      安装完成后本向导会**自动关闭**，<code>/</code> 变为需要登录的看板。
+      凭据将写入 <code>config.json</code>。
+    </div>
+
+    <button class="gbtn" id="install">开始安装</button>
+  </div>
+
+  <!-- 步骤二：完成 -->
+  <div id="doneStep" class="hidden">
+    <section>
+      <h2>✅ 安装完成</h2>
+      <div class="warn-note">
+        <b>请立即保存以下凭据</b>——密码与密钥只在此处完整显示一次。
+        之后可在 <code>config.json</code> 中查看或修改。
+      </div>
+      <div id="results"></div>
+      <div id="persistWarn" class="warn-note hidden" style="margin-top:14px"></div>
+      <button class="gbtn" id="goDash">打开看板</button>
+    </section>
+  </div>
+
+  <div style="text-align:center;color:var(--dim);font-size:11.5px;margin-top:8px">
+    WorkBuddy2API · 安装向导仅在未初始化时可用
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// 前端生成一版随机值用于"立即填入"，服务端仍会做最终校验/生成。
+// 用 crypto.getRandomValues 保证真随机（Math.random 不可用于凭据）。
+function randHex(bytes) {
+  const a = new Uint8Array(bytes);
+  crypto.getRandomValues(a);
+  return [...a].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+$('#genPass').addEventListener('click', () => { $('#pass').value = randHex(12); $('#pass').type = 'text'; });
+$('#genKey').addEventListener('click', () => { $('#apikey').value = 'sk-' + randHex(24); });
+
+function showErr(msg) {
+  $('#err').style.display = 'block';
+  $('#err').textContent = msg;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+$('#install').addEventListener('click', async () => {
+  $('#err').style.display = 'none';
+  $('#install').disabled = true;
+  $('#install').textContent = '安装中…';
+  try {
+    // 显式用 location.origin 拼绝对地址，**不要**写相对路径 'setup/install'。
+    //
+    // 原因（真实故障）：相对路径是按「文档 URL」解析的。若本页是通过带凭据的
+    // URL 打开的（例如 `http://user:pass@host:7863/`——浏览器会把凭据从地址栏
+    // 剥掉、但保留在文档内部 URL 上），那么相对 fetch 会在**发出前**直接抛错：
+    //   Failed to execute 'fetch' on 'Window':
+    //   Request cannot be constructed from a URL that includes credentials: setup/install
+    // 表现为"点开始安装就失败"，很容易误判成后端故障。
+    // location.origin 恒为 `scheme://host[:port]`，**永远不含凭据**，因此安全。
+    const r = await fetch(location.origin + '/setup/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user: $('#user').value.trim(),
+        pass: $('#pass').value,
+        api_key: $('#apikey').value.trim(),
+      }),
+    });
+    let data = null;
+    try { data = await r.json(); } catch (e) {}
+    if (!r.ok) {
+      const m = (data && data.error && (data.error.message || data.error)) || ('HTTP ' + r.status);
+      throw new Error(m);
+    }
+    renderDone(data);
+  } catch (e) {
+    showErr('安装失败：' + e.message);
+    $('#install').disabled = false;
+    $('#install').textContent = '开始安装';
+  }
+});
+
+function renderDone(d) {
+  $('#formStep').classList.add('hidden');
+  $('#doneStep').classList.remove('hidden');
+  const rows = [
+    ['看板地址', location.origin + '/', false],
+    ['用户名', d.user, false],
+    ['密码', d.pass, !!d.pass_generated],
+    ['API Key', d.api_key, !!d.apikey_generated],
+  ];
+  $('#results').innerHTML = rows.map(([k, v, isNew]) => `
+    <div class="done-row">
+      <span class="k">${esc(k)}</span>
+      <span class="v" id="v-${esc(k)}">${esc(v)}</span>
+      ${isNew ? '<span class="new">已生成</span>' : ''}
+      <button class="cp" data-copy="${esc(v)}">复制</button>
+    </div>`).join('');
+  if (!d.persisted) {
+    $('#persistWarn').classList.remove('hidden');
+    $('#persistWarn').innerHTML = '<b>注意：凭据未能写入配置文件</b><br>' + esc(d.persist_error || '') +
+      '<br>本次配置仅在当前进程中生效，<b>重启后需重新安装</b>。';
+  } else {
+    // 已落盘：明确告知"当前进程已生效，无需立刻重启"，避免用户白重启一次。
+    $('#persistWarn').classList.remove('hidden');
+    $('#persistWarn').innerHTML = '<b>凭据已写入配置文件</b><br>' +
+      '当前进程已立即生效，无需重启即可使用看板。<br>' +
+      '如需让 <code>docker compose</code> 以新配置重新起容器（例如同时改过挂载或环境变量），再执行 <code>docker compose up -d</code>。';
+  }
+}
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-copy]');
+  if (!b) return;
+  try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = '已复制'; }
+  catch (err) { b.textContent = '复制失败'; }
+  setTimeout(() => { b.textContent = '复制'; }, 1500);
+});
+
+// 安装完成后跳转看板：此时浏览器会弹出 Basic Auth 登录框，手输一次凭据即可。
+//
+// 为什么不用 `http://user:pass@host/` 自动带凭据跳转（历史实现）：
+// 现代浏览器会把 URL 里的凭据**从地址栏剥掉但保留在文档内部 URL 上**，
+// 于是页面能打开、`location.href` 看起来也正常，但页面内所有相对路径的
+// `fetch('api/...')` 都会在发出前直接抛错：
+//   Failed to execute 'fetch' on 'Window':
+//   Request cannot be constructed from a URL that includes credentials: api/status
+// 表现为"安装成功但看板数据全部加载失败"，且极易误判成后端故障。
+// 普通跳转 + 浏览器登录框是唯一稳定可靠的路径。
+$('#goDash').addEventListener('click', () => {
+  location.href = '/';
+});
+</script>
+</body>
+</html>

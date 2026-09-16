@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkBuddy 账号池看板</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #171a23; --card2: #1e222d; --line: #2a2f3a;
+    --txt: #e6e9ef; --dim: #8b93a7; --acc: #4f8cff; --ok: #2fbf71;
+    --warn: #f5a623; --err: #ef4a5b; --vio: #a06bff; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--txt); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; padding: 24px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  h1 { font-size: 20px; font-weight: 650; }
+  .sub { color: var(--dim); font-size: 13px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle;}
+  .dot.live{background:var(--ok); box-shadow:0 0 8px var(--ok);}
+  .dot.dead{background:var(--err);}
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card .k { color: var(--dim); font-size: 12px; margin-bottom: 8px; }
+  .card .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .card .v small { font-size: 13px; color: var(--dim); font-weight: 400; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+  section h2 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--dim); letter-spacing: .5px; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 500; font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  td.mono { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .t-ok { background: rgba(47,191,113,.15); color: var(--ok); }
+  .t-cool { background: rgba(245,166,35,.15); color: var(--warn); }
+  .t-off { background: rgba(239,74,91,.15); color: var(--err); }
+  .nums { font-variant-numeric: tabular-nums; }
+  .models { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; }
+  .chip b { color: var(--acc); font-weight: 600; }
+  .chip span { color: var(--dim); font-size: 11px; margin-left: 6px; }
+  .err-box { background: rgba(239,74,91,.12); border: 1px solid var(--err); color: #ffb3bb; padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .foot { color: var(--dim); font-size: 12px; text-align: center; margin-top: 8px; }
+  .right { text-align: right; }
+  /* token 区 */
+  .tk-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .tk { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .tk .k { color: var(--dim); font-size: 11.5px; margin-bottom: 6px; }
+  .tk .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tk .v.blue { color: var(--acc); } .tk .v.green { color: var(--ok); }
+  .tk .v.vio { color: var(--vio); } .tk .v.orange { color: var(--warn); }
+  .chart-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .chart-head .t { font-size: 13px; color: var(--dim); }
+  .legend { display:flex; gap:14px; font-size:12px; color:var(--dim); }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .chart { width: 100%; overflow: hidden; }
+  .empty { color: var(--dim); font-size: 13px; padding: 28px; text-align: center; }
+  .sub2 { color: var(--dim); font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .gbtn { background: var(--acc); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .gbtn:hover { filter: brightness(1.1); }
+  .gbtn:disabled { background: var(--line); color: var(--dim); cursor: not-allowed; }
+  /* 账号明细弹窗 */
+  .detail-toggle { background: var(--card2); border: 1px solid var(--line); color: var(--acc); border-radius: 6px; padding: 3px 11px; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .detail-toggle:hover { border-color: var(--acc); }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal-mask.open { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--line); border-radius: 14px; width: 100%; max-width: 560px; max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+  .modal-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .modal-head h3 { font-size: 15px; font-weight: 650; }
+  .modal-head .sub { color: var(--dim); font-size: 12px; }
+  .modal-close { margin-left: auto; background: none; border: none; color: var(--dim); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+  .modal-close:hover { color: var(--txt); }
+  .modal-sum { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 14px 20px; background: var(--card2); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--dim); }
+  .modal-sum b { color: var(--txt); font-variant-numeric: tabular-nums; }
+  .modal-body { overflow-y: auto; flex: 1; }
+  .modal-body table { font-size: 13px; }
+  .modal-body th, .modal-body td { padding: 9px 20px; }
+  .modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--dim); }
+  .pager { display: flex; gap: 6px; align-items: center; }
+  .pager button { background: var(--card2); border: 1px solid var(--line); color: var(--txt); border-radius: 6px; padding: 4px 11px; font-size: 12.5px; cursor: pointer; }
+  .pager button:hover:not(:disabled) { border-color: var(--acc); color: var(--acc); }
+  .pager button:disabled { color: var(--dim); cursor: not-allowed; opacity: .5; }
+  /* 页面内（非弹窗）分页条：与 .modal-foot 同款横向布局，改为主区块底部内边距。 */
+  .pager-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 2px 0; font-size: 12.5px; color: var(--dim); }
+  /* 账号列表标题行的操作按钮组 */
+  .h2-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .h2-row h2 { margin-bottom: 0; }
+  .h2-row .spacer { margin-left: auto; }
+  /* 任务中心「并发」输入：靠右贴着「全部执行」，与 .gbtn 视觉对齐 */
+  .conc-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--dim); cursor: help; }
+  .conc-label input { width: 62px; background: var(--card2); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--txt); font-family: var(--mono); font-size: 12.5px; padding: 6px 8px; text-align: center; }
+  .conc-label input:focus { outline: none; border-color: var(--acc); }
+  .conc-label input:disabled { opacity: .55; cursor: not-allowed; }
+  /* 添加账号弹窗 */
+  .add-step { padding: 16px 20px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .add-step:last-child { border-bottom: none; }
+  .add-step .lbl { color: var(--dim); font-size: 12px; margin-bottom: 8px; }
+  .add-url { font-family: var(--mono); font-size: 11.5px; color: var(--acc); word-break: break-all; background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin-bottom: 10px; user-select: all; }
+  .add-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sbtn { background: var(--card2); border: 1px solid var(--line); color: var(--txt); border-radius: 8px; padding: 7px 14px; font-size: 12.5px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .sbtn:hover { border-color: var(--acc); color: var(--acc); }
+  .add-status { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+  .spin { width: 13px; height: 13px; border: 2px solid var(--line); border-top-color: var(--acc); border-radius: 50%; animation: sp .8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .add-ok { color: var(--ok); }
+  .add-err { color: var(--err); }
+  .revive-btn { background: var(--card2); border: 1px solid var(--line); color: var(--warn); border-radius: 6px; padding: 3px 11px; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .revive-btn:hover { border-color: var(--warn); }
+  .revive-btn:disabled { color: var(--dim); cursor: not-allowed; opacity: .5; }
+  .del-btn { background: var(--card2); border: 1px solid var(--line); color: var(--err); border-radius: 6px; padding: 3px 11px; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .del-btn:hover { border-color: var(--err); }
+  /* API Key 管理 */
+  .key-name-input { width: 190px; background: var(--card2); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--txt); font-size: 12.5px; padding: 6px 10px; }
+  .key-name-input:focus { outline: none; border-color: var(--acc); }
+  /* key 明文用等宽字体 + 不换行，便于肉眼核对与三击全选 */
+  .key-val { font-family: var(--mono); font-size: 11.5px; word-break: break-all; user-select: all; }
+  .key-val.masked { color: var(--dim); letter-spacing: .5px; }
+  .key-toggle-eye { background: none; border: none; color: var(--acc); cursor: pointer; font-size: 11.5px; padding: 0 4px; }
+  .warn-note { background: rgba(245,166,35,.10); border: 1px solid rgba(245,166,35,.4); border-radius: 8px;
+    padding: 11px 13px; font-size: 12.5px; line-height: 1.7; color: #ffd79a; margin-bottom: 14px; }
+  .hint { color: var(--dim); font-size: 11.5px; line-height: 1.8; }
+  .hint code { background: var(--card2); border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-family: var(--mono); font-size: 11px; }
+  .hidden { display: none !important; }
+  /* 定时任务开关：用复选框做滑块，避免依赖框架 */
+  .sw { position: relative; display: inline-block; width: 42px; height: 22px; vertical-align: middle; }
+  .sw input { opacity: 0; width: 0; height: 0; }
+  .sw .slider { position: absolute; cursor: pointer; inset: 0; background: var(--line);
+    border-radius: 22px; transition: background .18s; }
+  .sw .slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%; transition: transform .18s; }
+  .sw input:checked + .slider { background: var(--ok); }
+  .sw input:checked + .slider::before { transform: translateX(20px); }
+  .sw input:disabled + .slider { opacity: .5; cursor: not-allowed; }
+  .sched-hours { font-family: var(--mono); font-size: 12px; }
+  .del-btn:disabled { color: var(--dim); cursor: not-allowed; opacity: .5; }
+  .danger-note { background: rgba(239,74,91,.10); border: 1px solid rgba(239,74,91,.4); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.7; color: #ffb3bb; margin-bottom: 12px; }
+  .danger-note b { color: #fff; }
+  .del-who { font-size: 13px; margin-bottom: 4px; }
+  .del-who b { color: var(--txt); }
+  /* 添加账号：标签页 */
+  .tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+  .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--dim); font-size: 13px; font-weight: 500; padding: 11px 12px; cursor: pointer; }
+  .tab:hover { color: var(--txt); }
+  .tab.active { color: var(--acc); border-bottom-color: var(--acc); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  /* 导入面板 */
+  .imp-area { width: 100%; min-height: 170px; background: var(--card2); border: 1px solid var(--line); border-radius: 8px; color: var(--txt); font-family: var(--mono); font-size: 11.5px; line-height: 1.5; padding: 10px 12px; resize: vertical; }
+  .imp-area:focus { outline: none; border-color: var(--acc); }
+  .imp-hint { color: var(--dim); font-size: 11.5px; line-height: 1.7; margin-top: 8px; }
+  .imp-hint code { background: var(--card2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+  .imp-result { margin-top: 12px; font-size: 12.5px; }
+  .imp-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .imp-row:last-child { border-bottom: none; }
+  .imp-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .imp-row .st { font-size: 11.5px; }
+  .imp-row .st.ok { color: var(--ok); }
+  .imp-row .st.no { color: var(--err); }
+  .imp-sum { margin-bottom: 8px; }
+  /* 拖拽 / 选文件区 */
+  .drop-zone { border: 1.5px dashed var(--line); border-radius: 10px; background: var(--card2); padding: 18px 14px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  .drop-zone:hover { border-color: var(--acc); }
+  .drop-zone.dragover { border-color: var(--acc); background: rgba(79,140,255,.08); }
+  .drop-zone .dz-main { font-size: 13px; color: var(--txt); }
+  .drop-zone .dz-link { color: var(--acc); text-decoration: underline; }
+  .drop-zone .dz-sub { font-size: 11.5px; color: var(--dim); margin-top: 6px; }
+  .drop-zone.has-file { border-style: solid; border-color: var(--ok); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🛠️ WorkBuddy 账号池看板</h1>
+    <span class="sub"><span id="liveDot" class="dot dead"></span><span id="liveTxt">连接中…</span></span>
+    <span class="sub" style="margin-left:auto" id="updated"></span>
+  </header>
+
+  <div id="err" class="err-box"></div>
+
+  <div class="cards" id="cards"></div>
+
+  <section>
+    <h2>Token 用量</h2>
+    <div class="tk-cards" id="tkCards"></div>
+    <div class="chart-head">
+      <span class="t">按小时趋势（最近 24h）</span>
+      <span class="legend">
+        <span><i style="background:var(--acc)"></i>输入 prompt</span>
+        <span><i style="background:var(--vio)"></i>输出 completion</span>
+      </span>
+    </div>
+    <div class="chart" id="chart"></div>
+  </section>
+
+  <section>
+    <h2>积分使用趋势</h2>
+    <div class="tk-cards" id="creditCards"></div>
+    <div class="chart-head">
+      <span class="t">积分总量曲线（最近 24h，每 5 分钟采样）</span>
+      <span class="legend">
+        <span><i style="background:var(--acc)"></i>剩余积分</span>
+      </span>
+    </div>
+    <div class="chart" id="creditChart"></div>
+  </section>
+
+  <section>
+    <h2>调用流水 <span id="callCount" class="sub2"></span></h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>时间</th><th>账号</th><th>UID</th><th>模型</th><th>模式</th><th class="right">状态</th></tr></thead>
+        <tbody id="callBody"></tbody>
+      </table>
+    </div>
+    <div class="pager-bar" id="callPager">
+      <span id="callInfo"></span>
+      <span class="pager">
+        <button id="callFirst">« 首页</button>
+        <button id="callPrev">上一页</button>
+        <button id="callNext">下一页</button>
+        <button id="callLast">末页 »</button>
+      </span>
+    </div>
+  </section>
+
+  <section>
+    <h2>分模型用量</h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>模型</th><th class="right">请求数</th><th class="right">输入</th><th class="right">输出</th><th class="right">合计</th></tr></thead>
+        <tbody id="modelUsageBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="h2-row">
+      <h2>账号列表 <span id="acctCount" class="sub2"></span></h2>
+      <span class="spacer"></span>
+      <button class="sbtn" id="keepaliveBtn" title="立即刷新全部账号的 token（续期）。accessToken 寿命取决于签发方，临近过期时刷一次即可续期，不必等定时 22:00">💓 保活</button>
+      <button class="sbtn" id="exportAcctBtn" title="导出全部账号的完整凭证（含明文 token），用于备份 / 迁移">⬇ 导出凭证</button>
+      <button class="gbtn" id="addAcctBtn">+ 添加账号</button>
+    </div>
+    <div id="keepaliveInfo" class="sub" style="font-size:12.5px;margin-bottom:12px"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr><th>账号</th><th>UID</th><th class="right">剩余积分</th><th class="right">Token 用量</th><th>状态</th><th>Token 到期</th><th>操作</th></tr>
+        </thead>
+        <tbody id="acctBody"></tbody>
+      </table>
+    </div>
+    <div class="pager-bar" id="acctPager">
+      <span id="acctInfo"></span>
+      <span class="pager">
+        <button id="acctFirst">« 首页</button>
+        <button id="acctPrev">上一页</button>
+        <button id="acctNext">下一页</button>
+        <button id="acctLast">末页 »</button>
+      </span>
+    </div>
+  </section>
+
+  <section>
+    <div class="h2-row">
+      <h2>任务中心 <span id="taskPending" class="sub2"></span></h2>
+      <span class="spacer"></span>
+      <button class="gbtn" id="taskScanBtn">🔍 扫描任务</button>
+      <label class="conc-label" title="同时处理的账号数（账号内任务仍逐个执行）。并发越高越快，但同 IP 瞬时请求越多，可能触发上游风控。">
+        并发
+        <input id="taskConc" type="number" min="1" max="100" step="1" value="10">
+      </label>
+      <button class="gbtn" id="taskRunAllBtn">▶️ 全部执行</button>
+    </div>
+    <div id="taskQueueInfo" class="sub" style="font-size:12.5px;margin-bottom:12px"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>账号</th><th>任务</th><th>进度</th><th class="right">奖励积分</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="taskBody"></tbody>
+      </table>
+    </div>
+    <div class="pager-bar" id="taskPager">
+      <span id="taskInfo"></span>
+      <span class="pager">
+        <button id="taskFirst">« 首页</button>
+        <button id="taskPrev">上一页</button>
+        <button id="taskNext">下一页</button>
+        <button id="taskLast">末页 »</button>
+      </span>
+    </div>
+  </section>
+
+  <section>
+    <div class="h2-row">
+      <h2>API Key <span id="keyCount" class="sub2"></span></h2>
+      <span class="spacer"></span>
+      <input id="keyName" type="text" class="key-name-input" placeholder="备注（可选，如 laptop）" maxlength="40" autocomplete="off">
+      <button class="gbtn" id="keyGenBtn">+ 生成 Key</button>
+    </div>
+    <div id="keyWarn" class="warn-note hidden"></div>
+    <div id="keyInfo" class="sub" style="font-size:12.5px;margin-bottom:12px"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Key</th><th>备注</th><th>来源</th><th>状态</th><th class="right">操作</th></tr></thead>
+        <tbody id="keyBody"></tbody>
+      </table>
+    </div>
+    <div class="hint" style="margin-top:10px">
+      多个 Key <b>并行有效</b>，任一命中即可调用 API——便于按客户端区分与单独吊销。<br>
+      <b>来源</b>：<code>config</code> 来自 <code>config.json</code> 的 <code>api_key</code>/<code>api_keys</code>（只能吊销，不能删除）；
+      <code>生成</code> 由本页创建，落盘在 <code>data/api_keys.json</code>（可删除）。<br>
+      调用时用 <code>Authorization: Bearer &lt;key&gt;</code>（OpenAI 系）或 <code>x-api-key: &lt;key&gt;</code>（Claude Code）。
+    </div>
+  </section>
+
+  <section>
+    <div class="h2-row">
+      <h2>定时任务 <span id="schedCount" class="sub2"></span></h2>
+      <span class="spacer"></span>
+      <button class="sbtn" id="schedRefreshBtn">↻ 刷新</button>
+    </div>
+    <div id="schedInfo" class="sub" style="font-size:12.5px;margin-bottom:12px"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>任务</th><th>触发时点</th><th>状态</th><th class="right">开关</th></tr></thead>
+        <tbody id="schedBody"></tbody>
+      </table>
+    </div>
+    <div class="hint" style="margin-top:10px">
+      切换后<b>立即生效</b>（调度器会被唤醒重算下一次触发），并<b>写回 <code>config.json</code></b> 以在重启后保持。<br>
+      禁用只影响定时排程，<b>不影响手动操作</b>（任务中心的「全部执行」、账号列表的「保活」按钮仍可用）。<br>
+      时点由 <code>schedule.*_hours</code> 配置，本页只切开关——禁用时保留时点，重新启用即恢复原时刻。
+    </div>
+  </section>
+
+  <section>
+    <h2>可用模型 <span id="modelCount" class="sub2"></span></h2>
+    <div class="models" id="modelList"></div>
+  </section>
+
+  <div class="foot">数据每 30 秒自动刷新 · 来源: /status · /credits · /stats · /credits/history · /calls · /v1/models</div>
+</div>
+
+<!-- 账号积分明细弹窗 -->
+<div class="modal-mask" id="detailModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="dmTitle">积分明细</h3>
+      <span class="sub" id="dmSub"></span>
+      <button class="modal-close" id="dmClose">×</button>
+    </div>
+    <div class="modal-sum" id="dmSum"></div>
+    <div class="modal-body">
+      <table>
+        <thead><tr><th>时间</th><th class="right">剩余积分</th><th class="right">较上次</th></tr></thead>
+        <tbody id="dmBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-foot">
+      <span id="dmInfo"></span>
+      <span class="pager">
+        <button id="dmPrev">上一页</button>
+        <span id="dmPage"></span>
+        <button id="dmNext">下一页</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- 添加账号弹窗：两种方式（OAuth 授权 / 粘贴 JSON 导入） -->
+<div class="modal-mask" id="addModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h3>添加账号</h3>
+      <span class="sub" id="addSub"></span>
+      <button class="modal-close" id="addClose">×</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="oauth">① 网页授权登录</button>
+      <button class="tab" data-tab="import">② 导入 JSON</button>
+    </div>
+
+    <!-- 面板一：OAuth 设备授权 -->
+    <div class="tab-panel active" id="panel-oauth">
+      <div class="add-step">
+        <div class="lbl">① 点「打开授权页」在新标签完成登录（也可复制链接到其他设备打开）</div>
+        <div class="add-url" id="addUrl">正在获取授权链接…</div>
+        <div class="add-actions">
+          <a class="gbtn" id="addOpen" href="#" target="_blank" rel="noopener">打开授权页</a>
+          <button class="sbtn" id="addCopy">复制链接</button>
+        </div>
+      </div>
+      <div class="add-step">
+        <div class="lbl">② 完成后本页会自动检测</div>
+        <div class="add-status" id="addStatus"><span class="spin"></span><span>等待授权完成…</span></div>
+      </div>
+    </div>
+
+    <!-- 面板二：导入 JSON（粘贴或选文件） -->
+    <div class="tab-panel" id="panel-import">
+      <div class="add-step">
+        <div class="lbl">选择 JSON 文件，或直接粘贴内容</div>
+        <!-- 拖拽区 + 文件选择：点它等同于点「选择文件」 -->
+        <div class="drop-zone" id="impDrop">
+          <div class="dz-main">把 .json 文件拖到这里，或 <span class="dz-link">点击选择文件</span></div>
+          <div class="dz-sub" id="impFileInfo">支持多选；内容会填入下方文本框，可再编辑</div>
+          <input type="file" id="impFile" accept=".json,application/json" multiple hidden>
+        </div>
+        <textarea class="imp-area" id="impText" style="margin-top:10px" placeholder='{"account":{"uid":"...","nickname":"..."},"auth":{"accessToken":"...","refreshToken":"...","expiresAt":0,"domain":"www.codebuddy.cn"}}'></textarea>
+        <div class="imp-hint">
+          · 嵌套形：<code>{"account":{...},"auth":{...}}</code><br>
+          · 数组形：<code>[{"uid","nickname","access_token","refresh_token","expires_in","domain"}, ...]</code><br>
+          · 单个对象、数组、<code>{"accounts":[...]}</code> 包装均可；单条出错不影响其他条目
+        </div>
+        <div class="add-actions" style="margin-top:12px">
+          <button class="gbtn" id="impBtn">开始导入</button>
+          <button class="sbtn" id="impClear">清空</button>
+        </div>
+      </div>
+      <div class="add-step" id="impResultWrap" style="display:none">
+        <div class="lbl">导入结果</div>
+        <div class="imp-result" id="impResult"></div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <span id="addInfo" class="sub2"></span>
+      <span class="pager">
+        <button id="addRetry" style="display:none">重新发起</button>
+        <button id="addCancel">关闭</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- 删除账号确认弹窗 -->
+<div class="modal-mask" id="delModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <h3>删除账号</h3>
+      <button class="modal-close" id="delClose">×</button>
+    </div>
+    <div class="add-step">
+      <div class="del-who">账号：<b id="delNick">—</b></div>
+      <div class="del-who sub2" id="delUid"></div>
+      <div class="danger-note" style="margin-top:12px">
+        该账号会立即从池中移除，不再参与选号。<br>
+        凭证文件将移入 <b>auths/.deleted/</b>（软删除），误删可手动拷回
+        <b>auths/</b> 并重启恢复。
+      </div>
+      <div class="add-status" id="delStatus"></div>
+    </div>
+    <div class="modal-foot">
+      <span class="sub2">删除后该账号的历史统计仍保留</span>
+      <span class="pager">
+        <button id="delConfirm" style="color:var(--err);border-color:var(--err)">确认删除</button>
+        <button id="delCancel">取消</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- 导出凭证确认：文件含明文 token，需显式确认后才下载 -->
+<div class="modal-mask" id="exportModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <h3>导出账号凭证</h3>
+      <button class="modal-close" id="exportClose">×</button>
+    </div>
+    <div class="add-step">
+      <div class="del-who">将导出 <b id="exportCount">—</b> 个账号</div>
+      <div class="danger-note" style="margin-top:12px">
+        导出文件包含 <b>明文 accessToken / refreshToken</b>，等同于账号本身。<br>
+        请确认下载目录安全（勿放共享盘 / 网盘同步目录 / 版本库），用后及时转移或删除。<br>
+        该文件可直接被「导入 JSON」读回，用于备份或迁移到另一台网关。
+      </div>
+      <label style="margin-top:14px">输入 <code>EXPORT</code> 以确认</label>
+      <input type="text" id="exportConfirmInput" placeholder="EXPORT" autocomplete="off" spellcheck="false">
+      <div class="add-status" id="exportStatus"></div>
+    </div>
+    <div class="modal-foot">
+      <span class="sub2">回收站（.deleted/）内的账号不在导出范围</span>
+      <span class="pager">
+        <button id="exportConfirm" style="color:var(--warn);border-color:var(--warn)" disabled>确认导出</button>
+        <button id="exportCancel">取消</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = n => (n ?? 0).toLocaleString('en-US');
+const kfmt = n => { n = n || 0; if (n >= 1e9) return (n/1e9).toFixed(2)+'B'; if (n >= 1e6) return (n/1e6).toFixed(2)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
+
+// apiURL 把页面内的相对路径（'api/status'）解析成**基于 location.origin 的绝对地址**。
+//
+// 为什么必须这么做（真实故障）：相对路径按「文档 URL」解析。若本页是通过带凭据的
+// URL 打开的（如 `http://user:pass@host:7863/`），浏览器会把凭据从地址栏剥掉、
+// 但保留在文档内部 URL 上，于是所有相对 fetch 都在**发出前**直接抛错：
+//   Failed to execute 'fetch' on 'Window':
+//   Request cannot be constructed from a URL that includes credentials: api/status
+// 表现为"看板数据全部加载失败"，极易误判成后端故障。
+// location.origin 恒为 `scheme://host[:port]`，**永远不含凭据**，因此安全。
+function apiURL(path) {
+  return location.origin + '/' + String(path).replace(/^\/+/, '');
+}
+
+async function jget(path) {
+  const r = await fetch(apiURL(path), { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error(path + ' → HTTP ' + r.status);
+  return r.json();
+}
+
+// jpost 用于账号管理端点（添加账号 / 复活）。错误体尽量透出后端 message，
+// 让用户看到「会话已过期」「上游失败」等具体原因，而不是干巴巴的状态码。
+async function jpost(path, body) {
+  const r = await fetch(apiURL(path), {
+    method: 'POST',
+    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await r.json(); } catch (e) { /* 空体或非 JSON */ }
+  if (!r.ok) {
+    const msg = (data && data.error && (data.error.message || data.error)) || ('HTTP ' + r.status);
+    throw new Error(msg);
+  }
+  return data;
+}
+function daysLeft(sec) {
+  if (sec == null) return '—';
+  const d = sec / 86400;
+  return d >= 0 ? d.toFixed(1) + ' 天' : '已过期';
+}
+
+// 画按小时柱状图（纯 SVG，无依赖）；展示最近 24 个整点
+function renderChart(hourly) {
+  const el = $('#chart');
+  const byHour = {}; (hourly || []).forEach(h => byHour[h.hour] = h);
+  // 生成最近 24 个小时键（本地时区）
+  const now = new Date();
+  const keys = [];
+  for (let i = 23; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 3600 * 1000);
+    const p = n => String(n).padStart(2, '0');
+    keys.push(`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}`);
+  }
+  const data = keys.map(k => {
+    const h = byHour[k] || {};
+    return { key: k, hour: k.slice(11), prompt: h.prompt || 0, completion: h.completion || 0, total: h.total || 0 };
+  });
+  const maxV = Math.max(1, ...data.map(d => d.prompt + d.completion));
+  if (data.every(d => d.total === 0)) {
+    el.innerHTML = '<div class="empty">暂无 Token 数据（发起对话后开始统计）</div>';
+    return;
+  }
+  const W = el.clientWidth || 1000, H = 170, padB = 22, padT = 8;
+  const bw = W / data.length, innerMax = H - padB - padT;
+  let bars = '';
+  data.forEach((d, i) => {
+    const x = i * bw, cw = bw * 0.62, gap = bw * 0.19;
+    const tot = d.prompt + d.completion;
+    const hP = tot === 0 ? 0 : (d.prompt / maxV) * innerMax;
+    const hC = tot === 0 ? 0 : (d.completion / maxV) * innerMax;
+    const yC = padT + innerMax - hC;
+    const yP = yC - hP;
+    if (hC > 0) bars += `<rect x="${x+gap}" y="${yC}" width="${cw}" height="${hC}" fill="var(--vio)" rx="2"><title>${d.hour} 输出 ${d.completion}</title></rect>`;
+    if (hP > 0) bars += `<rect x="${x+gap}" y="${yP}" width="${cw}" height="${hP}" fill="var(--acc)" rx="2"><title>${d.hour} 输入 ${d.prompt}</title></rect>`;
+  });
+  // x 轴：每 4 小时标一次
+  let labels = '';
+  data.forEach((d, i) => {
+    if (i % 4 === 0) {
+      const x = i * bw + bw / 2;
+      labels += `<text x="${x}" y="${H-6}" fill="var(--dim)" font-size="10" text-anchor="middle">${d.hour}</text>`;
+    }
+  });
+  el.innerHTML = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}${labels}</svg>`;
+}
+
+// 画积分总量曲线（纯 SVG，无依赖）；展示最近 24 小时的采样点
+function renderCreditTrend(snaps, total) {
+  const el = $('#creditChart');
+  const cardsEl = $('#creditCards');
+  const now = Math.floor(Date.now() / 1000);
+  const winStart = now - 24 * 3600;
+  const pts = (snaps || []).filter(s => s.ts >= winStart && s.ok !== false).sort((a, b) => a.ts - b.ts);
+
+  // 汇总卡片
+  const first = pts.length ? pts[0] : null;
+  const last = pts.length ? pts[pts.length - 1] : null;
+  const used = (first && last) ? Math.max(0, first.remain - last.remain) : 0;
+  const spanH = (first && last) ? Math.max(0, (last.ts - first.ts) / 3600) : 0;
+  const perHour = spanH > 0 ? used / spanH : 0;
+  cardsEl.innerHTML = `
+    <div class="tk"><div class="k">当前剩余</div><div class="v blue">${fmt(total && total.remain)}</div></div>
+    <div class="tk"><div class="k">24h 消耗</div><div class="v orange">${fmt(used)}</div></div>
+    <div class="tk"><div class="k">平均消耗/小时</div><div class="v vio">${perHour.toFixed(1)}</div></div>
+    <div class="tk"><div class="k">采样点数</div><div class="v green">${pts.length}</div></div>
+  `;
+
+  if (pts.length < 2) {
+    el.innerHTML = '<div class="empty">积分趋势数据积累中（每 5 分钟采样一次，稍后自动出现曲线）</div>';
+    return;
+  }
+
+  const W = el.clientWidth || 1000, H = 170, padL = 44, padR = 8, padB = 22, padT = 10;
+  const innerW = W - padL - padR, innerH = H - padB - padT;
+  const vals = pts.map(p => p.remain);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi === lo) { hi = lo + 1; lo = Math.max(0, lo - 1); }
+  const xOf = ts => padL + ((ts - pts[0].ts) / Math.max(1, pts[pts.length-1].ts - pts[0].ts)) * innerW;
+  const yOf = v => padT + innerH - ((v - lo) / (hi - lo)) * innerH;
+
+  let path = '';
+  pts.forEach((p, i) => { path += (i ? ' L ' : 'M ') + xOf(p.ts).toFixed(1) + ' ' + yOf(p.remain).toFixed(1); });
+  const area = path + ` L ${xOf(pts[pts.length-1].ts).toFixed(1)} ${(padT+innerH)} L ${xOf(pts[0].ts).toFixed(1)} ${(padT+innerH)} Z`;
+
+  // 网格与 Y 轴标签（4 档）
+  let grid = '';
+  for (let i = 0; i <= 3; i++) {
+    const v = lo + (hi - lo) * (i / 3);
+    const y = yOf(v);
+    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+    grid += `<text x="${padL-6}" y="${(y+3).toFixed(1)}" fill="var(--dim)" font-size="10" text-anchor="end">${kfmt(Math.round(v))}</text>`;
+  }
+  // 采样点（≤4 个时才画点，避免过密）
+  let dots = '';
+  if (pts.length <= 40) {
+    pts.forEach(p => { dots += `<circle cx="${xOf(p.ts).toFixed(1)}" cy="${yOf(p.remain).toFixed(1)}" r="2" fill="var(--acc)"><title>${new Date(p.ts*1000).toLocaleString('zh-CN')} · ${fmt(p.remain)}</title></circle>`; });
+  }
+  // X 轴：首尾时间标签
+  const hhmm = ts => new Date(ts*1000).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+  const labels = `<text x="${padL}" y="${H-6}" fill="var(--dim)" font-size="10" text-anchor="start">${hhmm(pts[0].ts)}</text>`
+               + `<text x="${W-padR}" y="${H-6}" fill="var(--dim)" font-size="10" text-anchor="end">${hhmm(pts[pts.length-1].ts)}</text>`;
+
+  el.innerHTML = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--acc)" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="var(--acc)" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${grid}
+    <path d="${area}" fill="url(#cg)"/>
+    <path d="${path}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round"/>
+    ${dots}${labels}
+  </svg>`;
+}
+
+// 渲染单个账号的积分采样明细弹窗（每 5 分钟一条，时间降序，每页 10 条）
+const PAGE_SIZE = 10;
+let dmUID = '', dmSamples = [], dmPageIdx = 0;
+
+// 调用流水分页状态。callRows 恒为「时间降序」（最新在前），翻页只切片不重排。
+// 保留总页数以便 30s 自动刷新后把当前页夹回合法范围（见 renderCallPage）。
+let callRows = [], callPageIdx = 0, callPageCount = 1;
+
+// 账号列表分页状态。acctRows 恒为「uid 升序」（与刷新前一致），翻页只切片不重排。
+// 行内容在 renderAccounts 里按需从 acctMaps 取，故翻页与 30s 自动刷新都不必重建整表。
+// 账号数可能随删除/导入变化，故同样保留总页数用于夹取越界页码。
+let acctRows = [], acctPageIdx = 0, acctPageCount = 1;
+let acctMaps = { st: {}, cr: {}, us: {}, hist: {} };
+
+function openDetailModal(uid, nickname, samples) {
+  dmUID = uid;
+  dmSamples = samples.slice().sort((a, b) => b.ts - a.ts);
+  dmPageIdx = 0;
+  $('#dmTitle').textContent = (nickname || '(未命名)') + ' · 积分明细';
+  $('#dmSub').textContent = uid.slice(0, 8) + '…';
+  renderDetailPage();
+  $('#detailModal').classList.add('open');
+}
+
+function renderDetailPage() {
+  const total = dmSamples.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (dmPageIdx > pages - 1) dmPageIdx = pages - 1;
+  const start = dmPageIdx * PAGE_SIZE;
+  const page = dmSamples.slice(start, start + PAGE_SIZE);
+
+  // 汇总（基于全部采样）
+  if (total) {
+    const newest = dmSamples[0], oldest = dmSamples[total - 1];
+    const used = Math.max(0, oldest.remain - newest.remain);
+    const spanH = Math.max(0, (newest.ts - oldest.ts) / 3600);
+    const perHour = spanH > 0 ? used / spanH : 0;
+    $('#dmSum').innerHTML = `<span>采样 <b>${total}</b> 条</span><span>最新 <b>${fmt(newest.remain)}</b></span>` +
+      `<span>区间消耗 <b>${fmt(used)}</b></span><span>平均 <b>${perHour.toFixed(1)}</b>/小时</span>`;
+  } else {
+    $('#dmSum').innerHTML = '<span>暂无采样记录（每 5 分钟采样一次，稍后自动出现）</span>';
+  }
+
+  const hhmm = ts => new Date(ts * 1000).toLocaleString('zh-CN', { hour12: false });
+  $('#dmBody').innerHTML = page.length ? page.map((p, i) => {
+    // 与上一条（时间更早）比较；跨页时用全局下标取值
+    const prev = dmSamples[start + i + 1];
+    let delta = '—';
+    if (prev) {
+      const d = p.remain - prev.remain;
+      const color = d > 0 ? 'var(--ok)' : (d < 0 ? 'var(--warn)' : 'var(--dim)');
+      delta = `<span style="color:${color}">${d > 0 ? '+' : ''}${fmt(d)}</span>`;
+    }
+    return `<tr><td class="nums">${hhmm(p.ts)}</td><td class="right nums">${fmt(p.remain)}</td><td class="right nums">${delta}</td></tr>`;
+  }).join('') : '<tr><td colspan="3" class="empty">暂无数据</td></tr>';
+
+  $('#dmInfo').textContent = total ? `第 ${start + 1}–${Math.min(start + PAGE_SIZE, total)} 条 / 共 ${total} 条` : '';
+  $('#dmPage').textContent = `${dmPageIdx + 1} / ${pages}`;
+  $('#dmPrev').disabled = dmPageIdx <= 0;
+  $('#dmNext').disabled = dmPageIdx >= pages - 1;
+}
+
+function closeDetailModal() { $('#detailModal').classList.remove('open'); }
+
+// ---------------------------------------------------------------------------
+// 添加账号（OAuth 设备授权）
+//
+// 凭证（accessToken/refreshToken）全程不经过浏览器：这里只拿 auth_url 与
+// 「等待中/成功」状态，token 由网关直接落盘到 auths/。
+// ---------------------------------------------------------------------------
+const ADD_POLL_MS = 2000;        // 轮询间隔
+const ADD_TIMEOUT_MS = 5 * 60000; // 最多等 5 分钟（与后端会话 TTL 对齐）
+let addTimer = null, addDeadline = 0, addSession = null;
+
+// 停止轮询（关闭弹窗、成功、超时、重试时都必须调，否则弹窗关了还在打接口）。
+function stopAddPolling() {
+  if (addTimer) { clearTimeout(addTimer); addTimer = null; }
+}
+
+function closeAddModal() {
+  stopAddPolling();
+  addSession = null;
+  $('#addModal').classList.remove('open');
+}
+
+// switchAddTab 切换「授权登录 / 导入 JSON」两个面板。
+// 切到导入页时停止 OAuth 轮询（避免看不见的轮询白打接口）。
+function switchAddTab(name) {
+  document.querySelectorAll('#addModal .tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === name);
+  });
+  $('#panel-oauth').classList.toggle('active', name === 'oauth');
+  $('#panel-import').classList.toggle('active', name === 'import');
+  if (name !== 'oauth') stopAddPolling();
+}
+
+// readImportFiles 读取用户选中的文件，合并填入文本框。
+//
+// 多文件合并规则：
+//   - 每个文件按 JSON 解析，若是数组则展开，否则作为单条；
+//   - 全部条目合并成一个数组写回文本框——**统一成数组形**，因为后端
+//     三种形态都认，而合并多个文件只能靠数组表达。
+//   - 解析失败的文件单独提示，但**不阻断**其他文件（与后端"部分成功"一致）。
+//
+// 编码：用 file.text()（按 UTF-8 解码）。带 BOM 的文件会在解析时被剥掉
+// （见 stripBOM），否则 JSON.parse 会因首字符 \uFEFF 报错——这是
+// Windows 上导出文件的常见坑。
+async function readImportFiles(files) {
+  const list = [...files];
+  if (!list.length) return;
+  const info = $('#impFileInfo');
+  const merged = [];
+  const problems = [];
+
+  for (const f of list) {
+    // 只收 .json / application-json；其余明确拒绝，避免把二进制塞进来。
+    const okName = /\.json$/i.test(f.name) || f.type === 'application/json';
+    if (!okName) {
+      problems.push(f.name + '（非 .json）');
+      continue;
+    }
+    let txt;
+    try {
+      txt = await f.text();
+    } catch (e) {
+      problems.push(f.name + '（读取失败）');
+      continue;
+    }
+    const cleaned = stripBOM(txt).trim();
+    if (!cleaned) {
+      problems.push(f.name + '（空文件）');
+      continue;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (e) {
+      problems.push(f.name + '（JSON 格式错误）');
+      continue;
+    }
+    if (Array.isArray(parsed)) merged.push(...parsed);
+    else merged.push(parsed);
+  }
+
+  if (merged.length) {
+    // 单个条目也统一用数组包裹，便于用户看清是批量导入。
+    $('#impText').value = JSON.stringify(merged, null, 2);
+    $('#impDrop').classList.add('has-file');
+  }
+  const okCount = merged.length;
+  info.innerHTML = (okCount
+    ? `<span class="add-ok">✓ 已读取 ${list.length - problems.length} 个文件，共 ${okCount} 条账号</span>`
+    : '<span class="add-err">✗ 没有可导入的内容</span>')
+    + (problems.length ? `<br><span class="add-err">跳过：${esc(problems.join('、'))}</span>` : '');
+}
+
+// stripBOM 去掉 UTF-8 BOM。Windows 记事本/PowerShell 导出的 JSON 常带 BOM，
+// 直接 JSON.parse 会抛 "Unexpected token"。
+function stripBOM(s) {
+  return s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
+}
+
+// runImport 提交粘贴的 JSON，逐条展示结果。
+async function runImport() {
+  const raw = $('#impText').value.trim();
+  const wrap = $('#impResultWrap');
+  if (!raw) {
+    wrap.style.display = '';
+    $('#impResult').innerHTML = '<span class="add-err">请先粘贴 JSON 内容</span>';
+    return;
+  }
+  $('#impBtn').disabled = true;
+  $('#impBtn').textContent = '导入中…';
+  wrap.style.display = '';
+  $('#impResult').innerHTML = '<span class="add-status"><span class="spin"></span><span>正在导入…</span></span>';
+
+  try {
+    const r = await fetch(apiURL('api/accounts/import'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: raw,
+    });
+    let data = null;
+    try { data = await r.json(); } catch (e) { /* 非 JSON */ }
+    if (!r.ok) {
+      const msg = (data && data.error && (data.error.message || data.error)) || ('HTTP ' + r.status);
+      throw new Error(msg);
+    }
+    renderImportResult(data);
+    // 有成功条目就刷新账号列表。
+    if ((data.imported || 0) > 0) setTimeout(refresh, 300);
+  } catch (e) {
+    $('#impResult').innerHTML = '<span class="add-err">导入失败：' + esc(e.message) + '</span>';
+  } finally {
+    $('#impBtn').disabled = false;
+    $('#impBtn').textContent = '开始导入';
+  }
+}
+
+// renderImportResult 展示逐条结果（成功的标绿、失败的标红并给出原因）。
+function renderImportResult(data) {
+  const rs = data.results || [];
+  const head = `<div class="imp-sum">成功 <b class="add-ok">${data.imported || 0}</b> 条`
+    + (data.failed ? ` · 失败 <b class="add-err">${data.failed}</b> 条` : '')
+    + ` · 共 ${data.total || 0} 条</div>`;
+  const rows = rs.map(r => {
+    const name = r.nickname || r.uid || '(未知)';
+    return `<div class="imp-row">
+      <span class="st ${r.ok ? 'ok' : 'no'}">${r.ok ? '✓' : '✗'}</span>
+      <span class="nm">${esc(name)}</span>
+      <span class="st ${r.ok ? 'ok' : 'no'}">${r.ok ? '已导入' : esc(r.error || '失败')}</span>
+    </div>`;
+  }).join('');
+  $('#impResult').innerHTML = head + (rows || '<div class="imp-row"><span class="nm">无结果</span></div>');
+}
+
+function setAddStatus(html, cls) {
+  $('#addStatus').innerHTML = html;
+  $('#addStatus').className = 'add-status' + (cls ? ' ' + cls : '');
+}
+
+// startAddAccount 发起一次登录：拿授权链接并开始轮询。
+async function startAddAccount() {
+  stopAddPolling();
+  addSession = null;
+  $('#addRetry').style.display = 'none';
+  $('#addUrl').textContent = '正在获取授权链接…';
+  $('#addOpen').removeAttribute('href');
+  $('#addInfo').textContent = '';
+  setAddStatus('<span class="spin"></span><span>正在获取授权链接…</span>');
+
+  let res;
+  try {
+    res = await jpost('api/accounts/login/start');
+  } catch (e) {
+    setAddStatus('<span class="add-err">✗ 无法发起登录：' + esc(e.message) + '</span>');
+    $('#addRetry').style.display = '';
+    return;
+  }
+  addSession = res.id;
+  $('#addUrl').textContent = res.auth_url;
+  $('#addOpen').href = res.auth_url;
+  // 不自动打开授权页：由用户显式点「打开授权页」再跳转。
+  // 自动 window.open 容易被浏览器当弹窗拦截，且用户可能只想先复制链接到
+  // 另一台设备/浏览器完成登录（比如手机上）。
+  setAddStatus('<span class="spin"></span><span>等待授权完成…（请点上方「打开授权页」）</span>');
+  addDeadline = Date.now() + ADD_TIMEOUT_MS;
+  scheduleAddPoll();
+}
+
+function scheduleAddPoll() {
+  stopAddPolling();
+  addTimer = setTimeout(pollAddAccount, ADD_POLL_MS);
+}
+
+// pollAddAccount 轮询一次；pending 则继续，done/failed 则收尾。
+async function pollAddAccount() {
+  if (!addSession) return;
+  if (Date.now() > addDeadline) {
+    setAddStatus('<span class="add-err">✗ 等待超时（5 分钟）。请重新发起。</span>');
+    $('#addRetry').style.display = '';
+    return;
+  }
+  let res;
+  try {
+    // poll 是 GET 端点（幂等查询），不能用 jpost。
+    res = await jget('api/accounts/login/poll?id=' + encodeURIComponent(addSession));
+  } catch (e) {
+    // 404 = 会话过期（后端 loginSessionTTL）；此时继续轮询没有意义。
+    setAddStatus('<span class="add-err">✗ 查询失败：' + esc(e.message) + '</span>');
+    $('#addRetry').style.display = '';
+    return;
+  }
+  if (res.status === 'done') {
+    const a = res.account || {};
+    setAddStatus('<span class="add-ok">✓ 已添加：' + esc(a.nickname || a.uid || '新账号') + '</span>', 'add-ok');
+    $('#addInfo').textContent = a.uid ? ('UID ' + a.uid.slice(0, 8) + '…') : '';
+    $('#addRetry').style.display = 'none';
+    setTimeout(() => { closeAddModal(); refresh(); }, 1200);
+    return;
+  }
+  if (res.status === 'failed') {
+    setAddStatus('<span class="add-err">✗ 添加失败：' + esc(res.error || '未知错误') + '</span>');
+    $('#addRetry').style.display = '';
+    return;
+  }
+  // pending：继续轮询
+  scheduleAddPoll();
+}
+
+// 渲染调用流水的当前页（每页 10 条）。
+// 数据源 callRows 已在 refresh() 里排成时间降序，这里只做切片，不重排——
+// 保证翻页时行序稳定，不会因为重排导致同一页内容跳动。
+function renderCallPage() {
+  const total = callRows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // 自动刷新后记录数可能变少（或首次进入），把页码夹回合法范围。
+  if (callPageIdx > pages - 1) callPageIdx = pages - 1;
+  if (callPageIdx < 0) callPageIdx = 0;
+  callPageCount = pages;
+
+  const start = callPageIdx * PAGE_SIZE;
+  const page = callRows.slice(start, start + PAGE_SIZE);
+  const hhmmss = ts => new Date(ts * 1000).toLocaleString('zh-CN', { hour12: false });
+  $('#callBody').innerHTML = page.length ? page.map(c => {
+    const ok = c.status >= 200 && c.status < 300;
+    return `<tr>
+      <td class="nums">${hhmmss(c.ts)}</td>
+      <td>${esc(c.nickname || '(未命名)')}</td>
+      <td class="mono">${c.uid ? esc(c.uid.slice(0,8)) + '…' : '—'}</td>
+      <td>${esc(c.model)}</td>
+      <td>${esc(c.mode)}</td>
+      <td class="right"><span class="tag ${ok ? 't-ok' : 't-off'}">${c.status}</span></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">暂无调用记录</td></tr>';
+
+  $('#callCount').textContent = total
+    ? `(第 ${start + 1}–${Math.min(start + PAGE_SIZE, total)} 条 / 共 ${total} 条)`
+    : '';
+  $('#callInfo').textContent = total ? `第 ${callPageIdx + 1} / ${pages} 页` : '';
+  // 四个按钮的禁用态同源（都在边界上判定），首/末页按钮与上/下一页保持一致：
+  // 漏设首末页会让它们看起来可点却无效果（点了不报错也不动），是真实可用性缺陷。
+  const atFirst = callPageIdx <= 0;
+  const atLast = callPageIdx >= pages - 1;
+  $('#callFirst').disabled = atFirst;
+  $('#callPrev').disabled = atFirst;
+  $('#callNext').disabled = atLast;
+  $('#callLast').disabled = atLast;
+  $('#callPager').style.display = total > PAGE_SIZE ? '' : 'none';
+}
+
+// renderAccounts 重绘账号表格当前页（每页 PAGE_SIZE 条，与调用流水/任务中心同口径）。
+//
+// 分页只对 acctRows（uid 升序）切片，不重排；行内容按需从 acctMaps 取。
+// 页码越界时夹回合法范围——删除/导入账号后总数会变，不夹取会出现空白页
+// （页码指向已不存在的区段），这与 renderCallPage 的处理一致。
+function renderAccounts() {
+  const total = acctRows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (acctPageIdx > pages - 1) acctPageIdx = pages - 1;
+  if (acctPageIdx < 0) acctPageIdx = 0;
+  acctPageCount = pages;
+
+  const start = acctPageIdx * PAGE_SIZE;
+  const page = acctRows.slice(start, start + PAGE_SIZE);
+  const { st: stMap, cr: crMap, us: usMap, hist: histMap } = acctMaps;
+
+  $('#acctBody').innerHTML = page.map(uid => {
+    const s = stMap[uid] || {}, c = crMap[uid] || {}, u = usMap[uid] || {};
+    const remain = c.remain, size = c.size;
+    const statusText = s.cooling ? `冷却中${s.reason ? ' · ' + esc(s.reason) : ''}` :
+                       (s.disabled ? '已禁用' : '正常');
+    const cls = s.disabled ? 't-off' : (s.cooling ? 't-cool' : 't-ok');
+    const n = (histMap[uid] || []).length;
+    const nick = c.nickname || s.nickname || '(未命名)';
+    // 已禁用账号给「复活」按钮（其余情况按钮禁用，保持列宽稳定）。
+    const revive = s.disabled
+      ? `<button class="revive-btn" data-revive="${esc(uid)}">复活</button>`
+      : `<button class="revive-btn" disabled>复活</button>`;
+    return `<tr>
+      <td>${esc(nick)}</td>
+      <td class="mono">${esc(uid.slice(0,8))}…</td>
+      <td class="right nums">${fmt(remain)}${size ? `<small style="color:var(--dim)"> / ${fmt(size)}</small>` : ''}</td>
+      <td class="right nums">${u.total ? fmt(u.total) : '—'}</td>
+      <td><span class="tag ${cls}">${statusText}</span></td>
+      <td class="nums">${daysLeft(c.expires_in_sec)}</td>
+      <td style="white-space:nowrap"><button class="detail-toggle" data-uid="${esc(uid)}" data-nick="${esc(nick)}">明细 (${n})</button> ${revive} <button class="del-btn" data-del="${esc(uid)}" data-del-nick="${esc(nick)}">删除</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="empty">暂无账号</td></tr>';
+
+  // 总数恒显示（含单页情形）；分页信息与控件只在多页时出现，避免占用一行空白。
+  $('#acctCount').textContent = total ? `(${total})` : '';
+  const atFirst = acctPageIdx <= 0;
+  const atLast = acctPageIdx >= pages - 1;
+  $('#acctInfo').textContent = total
+    ? `第 ${start + 1}–${Math.min(start + PAGE_SIZE, total)} 条 / 共 ${total} 条 · 第 ${acctPageIdx + 1} / ${pages} 页`
+    : '';
+  $('#acctFirst').disabled = atFirst;
+  $('#acctPrev').disabled = atFirst;
+  $('#acctNext').disabled = atLast;
+  $('#acctLast').disabled = atLast;
+  $('#acctPager').style.display = total > PAGE_SIZE ? '' : 'none';
+}
+
+// ============ 任务中心 ============
+// taskItems 缓存最近一次 /tasks/scan 的结果（账号 → 待办任务）。
+let taskItems = [];
+let taskQueueTimer = null;// 任务表格分页状态。taskRows 恒为「账号序 → 任务序」的展平列表，翻页只切片不重排。
+let taskRows = [], taskPageIdx = 0, taskPageCount = 1;
+
+function taskProgText(t) {
+  if (t.target > 0) return `${t.current}/${t.target}`;
+  if (t.claimed) return '已领取';
+  return t.accept_status || '—';
+}
+
+// flattenTasks 把 scan 结果展平成「一行一任务」的渲染列表（保持账号序 → 任务序）。
+// 分页只在这个列表上切片，故翻页不改变各行内容与顺序。
+function flattenTasks() {
+  const out = [];
+  taskItems.forEach(acct => {
+    if (acct.growth_error) {
+      out.push({ kind: 'err', uid: acct.uid, nickname: acct.nickname, err: acct.growth_error });
+      return;
+    }
+    (acct.growth || []).forEach(t => {
+      out.push({ kind: 'task', uid: acct.uid, nickname: acct.nickname, t });
+    });
+  });
+  return out;
+}
+
+// queueIndex 把 /tasks/queue 的 items 按 "uid|code" 建索引，供表格行查实时状态。
+// 队列项与表格行是同一批 (uid, task_code)，用复合键对齐。
+let queueIndex = {};
+
+function buildQueueIndex(items) {
+  const idx = {};
+  (items || []).forEach(it => { idx[(it.uid || '') + '|' + (it.code || '')] = it; });
+  return idx;
+}
+
+// queueTag 把队列状态映射为行内徽章（与「已领取/待完成」同一视觉体系）。
+function queueTag(st) {
+  switch (st) {
+    case 'running': return '<span class="tag t-cool">⏳ 执行中…</span>';
+    case 'done':    return '<span class="tag t-ok">✅ 已完成</span>';
+    case 'skipped': return '<span class="tag t-off">⏭ 已跳过</span>';
+    case 'error':   return '<span class="tag t-off">❌ 失败</span>';
+    default:        return null; // pending / 无队列项 → 回落扫描态
+  }
+}
+
+// renderTasks 重绘任务表格当前页。页码越界时夹回合法范围——30s 自动刷新/重新扫描后
+// 待办数可能变少，不夹取会出现空白页（页码指向已不存在的区段）。
+function renderTasks() {
+  taskRows = flattenTasks();
+  const total = taskRows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (taskPageIdx > pages - 1) taskPageIdx = pages - 1;
+  if (taskPageIdx < 0) taskPageIdx = 0;
+  taskPageCount = pages;
+
+  const start = taskPageIdx * PAGE_SIZE;
+  const page = taskRows.slice(start, start + PAGE_SIZE);
+  const rows = page.map(item => {
+    const name = esc(item.nickname || (item.uid || '').slice(0, 8));
+    if (item.kind === 'err') {
+      return `<tr><td>${name}</td><td colspan="4" class="empty" style="text-align:left;padding-left:12px">扫描失败: ${esc(item.err)}</td><td></td></tr>`;
+    }
+    const t = item.t;
+    // 队列执行中：该行的状态与按钮以队列实时状态为准（行内进度）。
+    const q = queueIndex[item.uid + '|' + t.task_code];
+    const qTag = q ? queueTag(q.status) : null;
+    const statusCell = qTag || `<span class="tag ${t.claimed ? 't-ok' : 't-cool'}">${t.claimed ? '已领取' : '待完成'}</span>`;
+    const busy = q && (q.status === 'running' || q.status === 'pending');
+    const btnLabel = busy ? (q.status === 'running' ? '执行中…' : '排队中') : '完成';
+    const msgCell = (q && q.message && (q.status === 'error' || q.status === 'skipped'))
+      ? ` <span class="sub" style="font-size:11px" title="${esc(q.message)}">· ${esc(q.message)}</span>` : '';
+    return `<tr>
+      <td>${name}</td>
+      <td>${esc(t.task_code)}${t.title ? ' <span class="sub" style="font-size:11px">' + esc(t.title) + '</span>' : ''}</td>
+      <td class="nums">${taskProgText(t)}</td>
+      <td class="right nums">${t.credit ? '+' + fmt(t.credit) : '—'}</td>
+      <td>${statusCell}${msgCell}</td>
+      <td><button class="detail-toggle" data-task-uid="${esc(item.uid)}" data-task-code="${esc(t.task_code)}"${busy ? ' disabled' : ''}>${btnLabel}</button></td>
+    </tr>`;
+  }).join('');
+  $('#taskBody').innerHTML = rows || '<tr><td colspan="6" class="empty">点击「扫描任务」查看可自动完成的待办</td></tr>';
+
+  // 页码边界与按钮禁用态同源，四个按钮一致（与调用流水分页同口径）。
+  const atFirst = taskPageIdx <= 0;
+  const atLast = taskPageIdx >= pages - 1;
+  $('#taskInfo').textContent = total ? `第 ${start + 1}–${Math.min(start + PAGE_SIZE, total)} 条 / 共 ${total} 条 · 第 ${taskPageIdx + 1} / ${pages} 页` : '';
+  $('#taskFirst').disabled = atFirst;
+  $('#taskPrev').disabled = atFirst;
+  $('#taskNext').disabled = atLast;
+  $('#taskLast').disabled = atLast;
+  $('#taskPager').style.display = total > PAGE_SIZE ? '' : 'none';
+
+  const pending = taskItems.reduce((n, a) => n + ((a.growth || []).length), 0);
+  $('#taskPending').textContent = pending ? `（${pending} 项待办）` : '';
+}
+
+async function taskScan() {
+  const btn = $('#taskScanBtn');
+  btn.disabled = true; btn.textContent = '扫描中…';
+  try {
+    const j = await jget('api/tasks/scan');
+    taskItems = j.accounts || [];
+    renderTasks();
+  } catch (e) {
+    $('#taskQueueInfo').textContent = '扫描失败: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 扫描任务';
+  }
+}
+
+// renderTaskQueue 用队列快照刷新：① 顶部进度文字 ② 表格行内状态（方案 A 行级进度）。
+// 表格重绘走 renderTasks()，其行内状态从 queueIndex 取值，故队列推进即刻反映到行上。
+function renderTaskQueue(j) {
+  const items = j.items || [];
+  queueIndex = buildQueueIndex(items);
+  const total = items.length || j.total || 0;
+  const done = items.filter(i => i.status === 'done').length;
+  const err = items.filter(i => i.status === 'error').length;
+  const skip = items.filter(i => i.status === 'skipped').length;
+  const running = items.filter(i => i.status === 'running').length;
+  const finished = done + err + skip;
+
+  if (j.running) {
+    const clamped = (j.conc_req && j.conc && j.conc_req !== j.conc) ? `（请求 ${j.conc_req} → 上限 ${j.conc_max}）` : '';
+    $('#taskQueueInfo').textContent =
+      `队列执行中 · ${finished}/${total} 已处理（成功 ${done}${err ? ' · 失败 ' + err : ''}${skip ? ' · 跳过 ' + skip : ''}）· ${running} 运行中 · 并发 ${j.conc}${clamped}`;
+  } else if (total) {
+    $('#taskQueueInfo').textContent =
+      `队列已结束 · ${total} 项：成功 ${done}${err ? ' · 失败 ' + err : ''}${skip ? ' · 跳过 ' + skip : ''}`;
+    queueIndex = {};
+  }
+  renderTasks(); // 行内状态随队列推进实时刷新
+
+  // 停止条件：只有「已启动过且当前不在运行」才算真正结束——避免刚启动的竞态
+  // （第一条轮询到来时 running 尚未置位）误关轮询，导致进度卡死。
+  if (!j.running && (j.started || finished >= total)) stopTaskQueuePoll();
+}
+
+function startTaskQueuePoll() {
+  if (taskQueueTimer) return;
+  // 立即拉一次，避免启动后 3 秒空窗。
+  jget('api/tasks/queue').then(renderTaskQueue).catch(() => {});
+  taskQueueTimer = setInterval(async () => {
+    try { renderTaskQueue(await jget('api/tasks/queue')); } catch (e) { /* 静默 */ }
+  }, 3000);
+}
+function stopTaskQueuePoll() { if (taskQueueTimer) { clearInterval(taskQueueTimer); taskQueueTimer = null; } }
+
+// 任务队列并发度：默认 10，上限 100（与后端 config.schedule.task_concurrency 同口径）。
+// 存 localStorage：看板 30 秒自动刷新 + 用户常驻复跑，不记住会每次都要重填。
+const CONC_DEFAULT = 10, CONC_MAX = 100, CONC_KEY = 'wb2api_task_conc';
+
+function loadConc() {
+  const el = $('#taskConc');
+  if (!el) return CONC_DEFAULT;
+  let v = parseInt(localStorage.getItem(CONC_KEY), 10);
+  if (!Number.isFinite(v) || v < 1) v = CONC_DEFAULT;
+  if (v > CONC_MAX) v = CONC_MAX;
+  el.value = v;
+  el.max = CONC_MAX;
+  return v;
+}
+
+// readConc 读输入框当前值并就地纠正（越界钳制、非法回落默认）。
+function readConc() {
+  const el = $('#taskConc');
+  let v = parseInt(el.value, 10);
+  if (!Number.isFinite(v) || v < 1) v = CONC_DEFAULT;
+  if (v > CONC_MAX) v = CONC_MAX;
+  el.value = v;
+  localStorage.setItem(CONC_KEY, String(v));
+  return v;
+}
+
+async function taskRunAll() {
+  const btn = $('#taskRunAllBtn');
+  const conc = readConc();
+  btn.disabled = true;
+  if ($('#taskConc')) $('#taskConc').disabled = true;
+  btn.textContent = '启动中…';
+  try {
+    const j = await jpost('api/tasks/queue', { concurrency: conc, growth: true });
+    if (j.started) {
+      // 如实回显**实际生效**的并发：请求值可能被后端上限钳制。
+      const eff = j.concurrency || conc;
+      const clamped = eff !== conc ? `（请求 ${conc}，已按上限 ${j.conc_max || CONC_MAX} 调整为 ${eff}）` : '';
+      $('#taskQueueInfo').textContent = `队列已启动（${j.total} 项，并发 ${eff}）${clamped}`;
+      startTaskQueuePoll();
+    } else {
+      $('#taskQueueInfo').textContent = j.message || '全部账号没有待办任务';
+    }
+  } catch (e) {
+    // 队列已在执行时后端回 409（"队列正在执行中"）。这不是失败，而应接入进度：
+    // 直接把错误文案换成轮询，否则用户会以为没跑起来。
+    if (/正在执行/.test(e.message || '')) {
+      $('#taskQueueInfo').textContent = '队列正在执行中，已接入进度…';
+      startTaskQueuePoll();
+    } else {
+      $('#taskQueueInfo').textContent = '执行失败: ' + e.message;
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = '▶️ 全部执行';
+    if ($('#taskConc')) $('#taskConc').disabled = false;
+  }
+}
+
+if ($('#taskFirst')) $('#taskFirst').addEventListener('click', () => { taskPageIdx = 0; renderTasks(); });
+if ($('#taskPrev')) $('#taskPrev').addEventListener('click', () => { taskPageIdx--; renderTasks(); });
+if ($('#taskNext')) $('#taskNext').addEventListener('click', () => { taskPageIdx++; renderTasks(); });
+if ($('#taskLast')) $('#taskLast').addEventListener('click', () => { taskPageIdx = taskPageCount - 1; renderTasks(); });
+
+if ($('#taskScanBtn')) $('#taskScanBtn').addEventListener('click', taskScan);
+if ($('#taskRunAllBtn')) $('#taskRunAllBtn').addEventListener('click', taskRunAll);
+// 并发输入：恢复上次选择；回车等同点击「全部执行」；失焦即纠正越界值。
+if ($('#taskConc')) {
+  loadConc();
+  $('#taskConc').addEventListener('change', readConc);
+  $('#taskConc').addEventListener('blur', readConc);
+  $('#taskConc').addEventListener('keydown', e => { if (e.key === 'Enter') { readConc(); taskRunAll(); } });
+}
+if ($('#taskBody')) $('#taskBody').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-task-uid]');
+  if (!btn) return;
+  const uid = btn.dataset.taskUid, code = btn.dataset.taskCode;
+  btn.disabled = true; btn.textContent = '执行中…';
+  try {
+    const j = await jpost('api/tasks/run', { uid, task_code: code });
+    $('#taskQueueInfo').textContent = `${code}: ${j.message || (j.skipped ? '已跳过' : '完成')}`;
+    taskScan();
+  } catch (err) {
+    $('#taskQueueInfo').textContent = '执行失败: ' + err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '完成';
+  }
+});
+
+async function refresh() {
+  $('#err').style.display = 'none';
+  try {
+    const [status, credits, models, health, stats, creditHist, callLog] = await Promise.all([
+      jget('api/status'), jget('api/credits'), jget('api/v1/models'),
+      // healthz 在「无 healthy 账号」时按设计返回 503（它是给负载均衡/编排用的探活口径，
+      // 见 handler.healthz）。那不是接口故障，而是「池子当前不可服务」这一正常状态。
+      // 若让它走 Promise.all 的 reject 分支，整页会渲染失败——恰恰在最需要看板
+      // （账号全禁用/全冷却，要去点复活）的时候白屏。故这里降级为"记录状态"。
+      jget('api/healthz').catch(() => ({ healthy: 0, total: 0, service: '-' })),
+      jget('api/stats'),
+      jget('api/credits/history').catch(() => ({ snapshots: [] })),
+      // limit 取服务端保留上限（5000，见 calllog.go callLogRetention）：
+      // 前端本地分页需要完整数据集，不能只取 100 条，否则翻不到第 11 页之后。
+      jget('api/calls?limit=5000').catch(() => ({ calls: [] }))
+    ]);
+
+    const stMap = {}; (status.accounts || []).forEach(s => stMap[s.uid] = s);
+    const crMap = {}; (credits.accounts || []).forEach(c => crMap[c.uid] = c);
+    const usMap = {}; (stats.by_uid || []).forEach(u => usMap[u.name] = u);
+    const uids = Array.from(new Set([...(status.accounts||[]).map(s=>s.uid), ...(credits.accounts||[]).map(c=>c.uid)]));
+
+    // 顶部指标
+    $('#cards').innerHTML = `
+      <div class="card"><div class="k">账号总数</div><div class="v">${status.total ?? uids.length}</div></div>
+      <div class="card"><div class="k">健康账号</div><div class="v" style="color:var(--ok)">${status.healthy ?? 0}<small> / ${health.total ?? 0}</small></div></div>
+      <div class="card"><div class="k">冷却 / 禁用</div><div class="v" style="color:var(--warn)">${status.cooling ?? 0}<small> / ${status.disabled ?? 0}</small></div></div>
+      <div class="card"><div class="k">剩余积分合计</div><div class="v" style="color:var(--acc)">${fmt(credits.total?.remain)}</div></div>
+      <div class="card"><div class="k">累计 Token</div><div class="v" style="color:var(--vio)">${kfmt(stats.total?.total)}</div></div>
+    `;
+
+    // Token 卡片
+    const t = stats.total || {};
+    $('#tkCards').innerHTML = `
+      <div class="tk"><div class="k">总 Token</div><div class="v blue">${kfmt(t.total)}</div></div>
+      <div class="tk"><div class="k">输入 prompt</div><div class="v green">${kfmt(t.prompt)}</div></div>
+      <div class="tk"><div class="k">输出 completion</div><div class="v vio">${kfmt(t.completion)}</div></div>
+      <div class="tk"><div class="k">请求数</div><div class="v orange">${fmt(t.requests)}</div></div>
+    `;
+
+    // 趋势图
+    renderChart(stats.hourly);
+
+    // 积分使用趋势
+    renderCreditTrend(creditHist.snapshots || [], credits.total);
+
+    // 调用流水：倒序（最新在前）+ 每页 10 条分页。
+    // 只在数据真正变化时才重建 callRows，避免 30s 自动刷新把用户正在看的页重置。
+    const incoming = (callLog.calls || []).slice().reverse();
+    const changed = incoming.length !== callRows.length
+      || (incoming.length > 0 && callRows.length > 0 && incoming[0].ts !== callRows[0].ts);
+    if (changed) callRows = incoming;
+    renderCallPage();
+
+    // 分模型
+    const bm = stats.by_model || [];
+    $('#modelUsageBody').innerHTML = bm.length ? bm.map(m =>
+      `<tr><td><b>${esc(m.name)}</b></td><td class="right nums">${fmt(m.requests)}</td>
+       <td class="right nums">${fmt(m.prompt)}</td><td class="right nums">${fmt(m.completion)}</td>
+       <td class="right nums" style="color:var(--acc)">${fmt(m.total)}</td></tr>`
+    ).join('') : '<tr><td colspan="5" class="empty">暂无数据</td></tr>';
+
+    // 账号行（分页渲染，见 renderAccounts）
+    uids.sort();
+    // 每账号的积分采样明细：uid → [{ts, remain}]（来自 /credits/history 的 detail）
+    const histMap = {};
+    (creditHist.snapshots || []).forEach(sn => {
+      (sn.detail || []).forEach(d => { (histMap[d.uid] = histMap[d.uid] || []).push({ ts: sn.ts, remain: d.remain }); });
+    });
+    histMapGlobal = histMap;
+    // 行数据以「uid 升序」为定序（与刷新前一致），只有账号集合真的变化时才重建 acctRows：
+    // 否则 30s 自动刷新会把用户正在看的页重置回第 1 页。
+    acctMaps = { st: stMap, cr: crMap, us: usMap, hist: histMap };
+    const acctSig = uids.join(',');
+    if (acctSig !== acctRows.join(',')) acctRows = uids.slice();
+    renderAccounts();
+
+    // 模型
+    const ms = models.data || [];
+    $('#modelCount').textContent = `(${ms.length})`;
+    $('#modelList').innerHTML = ms.map(m => {
+      const ctx = m.context_length ? Math.round(m.context_length/1000) + 'K' : '';
+      return `<div class="chip"><b>${esc(m.id)}</b>${ctx?`<span>${ctx}</span>`:''}</div>`;
+    }).join('') || '<span class="sub">无</span>';
+
+    // 池可服务性：与 /healthz 同口径（healthy 且未占满在途）。不可服务时点黄灯，
+    // 而不是报"连接失败"——数据明明读到了，只是池子没有能接单的号。
+    const servable = (status.healthy ?? 0) > 0 && !status.in_flight_full;
+    $('#liveDot').className = 'dot ' + (servable ? 'live' : 'dead');
+    $('#liveTxt').textContent = servable ? '已连接' : '已连接 · 池不可服务（无健康账号）';
+    $('#updated').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN');
+  } catch (e) {
+    $('#liveDot').className = 'dot dead';
+    $('#liveTxt').textContent = '连接失败';
+    $('#err').style.display = 'block';
+    $('#err').textContent = '加载失败: ' + e.message;
+  }
+}
+
+// 账号积分明细：事件委托（弹窗 + 分页）
+let histMapGlobal = {};
+
+refresh();
+setInterval(refresh, 30000);
+
+// 页面加载（含刷新后重进）时恢复队列进度：后端队列状态在进程内存里，
+// 刷新只重置了前端轮询。不主动查一次的话，界面会停在扫描时的旧状态，
+// 看起来像「进度丢了」，而实际队列仍在后台推进。
+jget('api/tasks/queue').then(j => {
+  if (j.running) {
+    renderTaskQueue(j);   // 先立刻渲染当前进度
+    startTaskQueuePoll(); // 再恢复周期轮询
+  } else if (j.total) {
+    renderTaskQueue(j);   // 已结束：显示上次最终结果
+  }
+}).catch(() => { /* 队列接口不可用时静默，不影响其余看板 */ });
+
+$('#acctBody').addEventListener('click', async e => {
+  // 删除按钮：只打开确认弹窗，实际删除在弹窗里执行
+  const db = e.target.closest('[data-del]');
+  if (db) {
+    openDelModal(db.dataset.del, db.dataset.delNick);
+    return;
+  }
+  // 复活按钮（仅已禁用账号可点）
+  const rv = e.target.closest('[data-revive]');
+  if (rv) {
+    if (rv.disabled) return;
+    const uid = rv.dataset.revive;
+    rv.disabled = true;
+    rv.textContent = '复活中…';
+    try {
+      await jpost('api/accounts/' + encodeURIComponent(uid) + '/revive');
+      await refresh();
+    } catch (err) {
+      rv.disabled = false;
+      rv.textContent = '复活';
+      $('#err').style.display = 'block';
+      $('#err').textContent = '复活失败: ' + err.message;
+    }
+    return;
+  }
+  const btn = e.target.closest('.detail-toggle');
+  if (!btn) return;
+  openDetailModal(btn.dataset.uid, btn.dataset.nick, histMapGlobal[btn.dataset.uid] || []);
+});
+
+// ---------------------------------------------------------------------------
+// 删除账号
+// ---------------------------------------------------------------------------
+let delUID = '';
+
+function openDelModal(uid, nick) {
+  delUID = uid;
+  $('#delNick').textContent = nick || '(未命名)';
+  $('#delUid').textContent = uid;
+  $('#delStatus').innerHTML = '';
+  $('#delConfirm').disabled = false;
+  $('#delConfirm').textContent = '确认删除';
+  $('#delModal').classList.add('open');
+}
+
+function closeDelModal() {
+  $('#delModal').classList.remove('open');
+  delUID = '';
+}
+
+// doDelete 执行删除；成功后关闭弹窗并刷新列表。
+async function doDelete() {
+  if (!delUID) return;
+  const uid = delUID;
+  $('#delConfirm').disabled = true;
+  $('#delConfirm').textContent = '删除中…';
+  try {
+    const r = await fetch(apiURL('api/accounts/' + encodeURIComponent(uid)), { method: 'DELETE' });
+    let data = null;
+    try { data = await r.json(); } catch (e) { /* 非 JSON */ }
+    if (!r.ok) {
+      const msg = (data && data.error && (data.error.message || data.error)) || ('HTTP ' + r.status);
+      throw new Error(msg);
+    }
+    closeDelModal();
+    await refresh();
+  } catch (err) {
+    $('#delStatus').innerHTML = '<span class="add-err">✗ 删除失败：' + esc(err.message) + '</span>';
+    $('#delConfirm').disabled = false;
+    $('#delConfirm').textContent = '确认删除';
+  }
+}
+
+$('#dmPrev').addEventListener('click', () => { if (dmPageIdx > 0) { dmPageIdx--; renderDetailPage(); } });
+$('#dmNext').addEventListener('click', () => { dmPageIdx++; renderDetailPage(); });
+$('#dmClose').addEventListener('click', closeDetailModal);
+$('#detailModal').addEventListener('click', e => { if (e.target.id === 'detailModal') closeDetailModal(); });
+
+// ---------------------------------------------------------------------------
+// 导出账号凭证（含明文 token，用于备份 / 迁移）
+//
+// 为什么要确认短语：导出文件等同于账号本身（token 不可再生），而按钮就在列表里、
+// 误点成本极高。故要求手输 EXPORT 才放行——这不是形式主义，是防误点/防诱导点击。
+// ---------------------------------------------------------------------------
+const EXPORT_PHRASE = 'EXPORT';
+
+function openExportModal() {
+  $('#exportCount').textContent = acctRows.length ? String(acctRows.length) : '0';
+  $('#exportConfirmInput').value = '';
+  $('#exportConfirm').disabled = true;
+  $('#exportStatus').innerHTML = '';
+  $('#exportModal').classList.add('open');
+  setTimeout(() => $('#exportConfirmInput').focus(), 50);
+}
+
+function closeExportModal() {
+  $('#exportModal').classList.remove('open');
+  $('#exportConfirmInput').value = '';
+}
+
+// syncExportConfirm 输入框内容决定按钮可用态（不匹配就保持禁用）。
+function syncExportConfirm() {
+  const ok = $('#exportConfirmInput').value.trim() === EXPORT_PHRASE;
+  $('#exportConfirm').disabled = !ok;
+}
+
+async function doExport() {
+  const btn = $('#exportConfirm');
+  btn.disabled = true;
+  btn.textContent = '导出中…';
+  try {
+    // 用 fetch 而非直接跳链接：需要在响应头里取文件名，并统一处理错误提示。
+    const r = await fetch(apiURL('api/accounts/export'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: EXPORT_PHRASE }),
+    });
+    if (!r.ok) {
+      let msg = 'HTTP ' + r.status;
+      try {
+        const j = await r.json();
+        if (j && j.error) msg = j.error.message || j.error;
+      } catch (e) { /* 非 JSON */ }
+      throw new Error(msg);
+    }
+    const blob = await r.blob();
+    // 文件名优先取服务端的 Content-Disposition，回落本地生成（保持同一命名规则）。
+    let name = 'workbuddy-accounts.json';
+    const cd = r.headers.get('Content-Disposition') || '';
+    const m = /filename="([^"]+)"/.exec(cd);
+    if (m) name = m[1];
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // 立即释放：blob 里是明文凭证，别留在内存里等 GC。
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+
+    closeExportModal();
+  } catch (err) {
+    $('#exportStatus').innerHTML = '<span class="add-err">✗ 导出失败：' + esc(err.message) + '</span>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '确认导出';
+  }
+}
+
+if ($('#exportAcctBtn')) $('#exportAcctBtn').addEventListener('click', openExportModal);
+if ($('#exportClose')) $('#exportClose').addEventListener('click', closeExportModal);
+if ($('#exportCancel')) $('#exportCancel').addEventListener('click', closeExportModal);
+if ($('#exportModal')) $('#exportModal').addEventListener('click', e => { if (e.target.id === 'exportModal') closeExportModal(); });
+if ($('#exportConfirmInput')) {
+  $('#exportConfirmInput').addEventListener('input', syncExportConfirm);
+  $('#exportConfirmInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !$('#exportConfirm').disabled) doExport();
+  });
+}
+if ($('#exportConfirm')) $('#exportConfirm').addEventListener('click', doExport);
+
+// ---------------------------------------------------------------------------
+// 手动保活：立即刷新全部账号 token（续期）
+//
+// 为什么值得做成按钮：accessToken 寿命取决于签发方（实测腾讯站 60 天、
+// www.codebuddy.cn 站仅 3 天），临近过期时手工刷一次即可续期，
+// 不必等定时 22:00 或重启进程。后端与定时保活共用同一实现和互斥锁。
+// ---------------------------------------------------------------------------
+async function runKeepalive() {
+  const btn = $('#keepaliveBtn');
+  const info = $('#keepaliveInfo');
+  btn.disabled = true;
+  const oldLabel = btn.textContent;
+  btn.textContent = '刷新中…';
+  info.textContent = '正在刷新全部账号 token…';
+  try {
+    const j = await jpost('api/keepalive', {});
+    const results = j.results || [];
+    // 失败的逐条列出（uid 前缀即可，看板列表有全名），便于定位是哪个号有问题。
+    const fails = results
+      .filter(r => r.status === 'fail')
+      .map(r => `${(r.nickname || r.uid.slice(0, 8))}: ${r.detail || '失败'}`);
+    let msg = `保活完成：成功 ${j.ok_count} / 失败 ${j.fail_count} / 跳过 ${j.skip_count}（共 ${j.total}）`;
+    if (j.ok_count > 0) {
+      // 成功项取最短剩余天数，作为"最紧迫那个号续到了多久"的直观提示。
+      const days = results.filter(r => r.status === 'ok' && r.extends_days > 0).map(r => r.extends_days);
+      if (days.length) msg += ` · 续期后最短剩余 ${Math.min(...days).toFixed(1)} 天`;
+    }
+    info.textContent = msg + (fails.length ? ' ｜ ' + fails.join('；') : '');
+    await refresh();   // 立即重绘（Token 到期列随刷新变化）
+  } catch (e) {
+    // 409 = 已有一次保活在跑（手动与定时撞车）。这不是失败，提示即可。
+    info.textContent = /already running/.test(e.message || '')
+      ? '已有一次保活正在执行中，请稍候再看'
+      : '保活失败: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+  }
+}
+
+if ($('#keepaliveBtn')) $('#keepaliveBtn').addEventListener('click', runKeepalive);
+
+// 添加账号弹窗
+$('#addAcctBtn').addEventListener('click', () => {
+  $('#addModal').classList.add('open');
+  switchAddTab('oauth'); // 每次打开都回到默认标签页，避免停在上次的面板
+  startAddAccount();
+});
+$('#addClose').addEventListener('click', closeAddModal);
+$('#addCancel').addEventListener('click', closeAddModal);
+$('#addRetry').addEventListener('click', startAddAccount);
+$('#addModal').addEventListener('click', e => { if (e.target.id === 'addModal') closeAddModal(); });
+// 标签页切换
+document.querySelectorAll('#addModal .tab').forEach(btn => {
+  btn.addEventListener('click', () => switchAddTab(btn.dataset.tab));
+});
+// 导入面板
+$('#impBtn').addEventListener('click', runImport);
+$('#impClear').addEventListener('click', () => {
+  $('#impText').value = '';
+  $('#impResultWrap').style.display = 'none';
+  $('#impResult').innerHTML = '';
+  // 一并复位文件区状态，避免"看起来还选着文件"。
+  $('#impFile').value = '';
+  $('#impDrop').classList.remove('has-file');
+  $('#impFileInfo').textContent = '支持多选；内容会填入下方文本框，可再编辑';
+});
+
+// 文件选择 / 拖拽导入
+$('#impDrop').addEventListener('click', () => $('#impFile').click());
+$('#impFile').addEventListener('change', e => {
+  readImportFiles(e.target.files);
+  // 清空 input.value：否则连续选同一个文件不会再触发 change。
+  e.target.value = '';
+});
+['dragenter', 'dragover'].forEach(evt => {
+  $('#impDrop').addEventListener(evt, e => {
+    e.preventDefault();
+    e.stopPropagation();
+    $('#impDrop').classList.add('dragover');
+  });
+});
+['dragleave', 'drop'].forEach(evt => {
+  $('#impDrop').addEventListener(evt, e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (evt === 'dragleave' && e.target !== $('#impDrop')) return; // 子元素间移动不算离开
+    $('#impDrop').classList.remove('dragover');
+  });
+});
+$('#impDrop').addEventListener('drop', e => {
+  const files = e.dataTransfer?.files;
+  if (files && files.length) readImportFiles(files);
+});
+// 阻止浏览器在页面其他位置直接打开被拖入的文件（否则会跳走丢失当前页面状态）
+['dragover', 'drop'].forEach(evt => {
+  window.addEventListener(evt, e => { if (e.target.id !== 'impDrop') e.preventDefault(); });
+});
+$('#addCopy').addEventListener('click', async () => {
+  const url = $('#addUrl').textContent;
+  if (!url || url === '正在获取授权链接…') return;
+  try { await navigator.clipboard.writeText(url); $('#addCopy').textContent = '已复制'; }
+  catch (e) { $('#addCopy').textContent = '复制失败'; }
+  setTimeout(() => { $('#addCopy').textContent = '复制链接'; }, 1500);
+});
+
+// 删除账号弹窗
+$('#delConfirm').addEventListener('click', doDelete);
+$('#delCancel').addEventListener('click', closeDelModal);
+$('#delClose').addEventListener('click', closeDelModal);
+$('#delModal').addEventListener('click', e => { if (e.target.id === 'delModal') closeDelModal(); });
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  // 四个弹窗互不影响：各自关自己的（删除/导出确认优先于明细）。
+  if ($('#delModal').classList.contains('open')) { closeDelModal(); return; }
+  if ($('#exportModal').classList.contains('open')) { closeExportModal(); return; }
+  if ($('#addModal').classList.contains('open')) { closeAddModal(); return; }
+  closeDetailModal();
+});
+
+// 调用流水分页按钮。页码边界由 renderCallPage 统一夹取，
+// 这里只负责改下标并重绘（首/末页按钮直接跳到边界）。
+$('#callFirst').addEventListener('click', () => { callPageIdx = 0; renderCallPage(); });
+$('#callPrev').addEventListener('click', () => { callPageIdx--; renderCallPage(); });
+$('#callNext').addEventListener('click', () => { callPageIdx++; renderCallPage(); });
+$('#callLast').addEventListener('click', () => { callPageIdx = callPageCount - 1; renderCallPage(); });
+
+// 账号列表分页：与调用流水同口径（只改下标 + 重绘，行数据由 renderAccounts 按页取）。
+if ($('#acctFirst')) $('#acctFirst').addEventListener('click', () => { acctPageIdx = 0; renderAccounts(); });
+if ($('#acctPrev')) $('#acctPrev').addEventListener('click', () => { acctPageIdx--; renderAccounts(); });
+if ($('#acctNext')) $('#acctNext').addEventListener('click', () => { acctPageIdx++; renderAccounts(); });
+if ($('#acctLast')) $('#acctLast').addEventListener('click', () => { acctPageIdx = acctPageCount - 1; renderAccounts(); });
+
+window.addEventListener('resize', () => { /* 下次刷新自动重绘 */ });
+
+// ===========================================================================
+// API Key 管理（多 key 并行有效）
+//
+// 交互设计：
+//   - 列表默认显示**掩码**，点「显示」才展开明文——避免旁人扫屏时直接看到完整 key；
+//   - 「复制」直接复制明文（getUserMedia/剪贴板都不需要展开）；
+//   - 生成后自动复制到剪贴板并展开该行——刚生成的 key 大概率就是要立刻用；
+//   - config 源的 key 不给「删除」（配置文件里还在，删了下次启动又回来），只给「吊销」。
+// ===========================================================================
+let keyRows = [];
+// revealed 记录已展开明文的 key（一次页面会话内有效；刷新页面即复位）。
+const keyRevealed = new Set();
+
+function maskKey(k) {
+  if (k.length <= 13) return '•'.repeat(k.length);
+  return k.slice(0, 8) + '…' + k.slice(-4);
+}
+
+function keyEsc(s) { return esc(s); }
+
+// renderKeys 重绘 key 表格。
+function renderKeys() {
+  $('#keyCount').textContent = keyRows.length ? `(${keyRows.length})` : '';
+  $('#keyBody').innerHTML = keyRows.length ? keyRows.map((r, i) => {
+    const shown = keyRevealed.has(r.key);
+    // 明文用 textContent 语义渲染（不经过 innerHTML 拼接），避免 key 里的特殊字符
+    // 破坏结构——key 是我们生成的 sk-<hex>，但 config 里的 key 由用户提供，不可假设。
+    const keyCell = shown
+      ? `<span class="key-val">${keyEsc(r.key)}</span>`
+      : `<span class="key-val masked">${keyEsc(r.preview || maskKey(r.key))}</span>`;
+    const eye = `<button class="key-toggle-eye" data-eye="${i}">${shown ? '隐藏' : '显示'}</button>`;
+    const srcTag = r.source === 'config'
+      ? `<span class="tag t-cool" title="来自 config.json，只能吊销不能删除">config</span>`
+      : `<span class="tag t-ok" title="由本页生成，落盘 data/api_keys.json">生成</span>`;
+    const stTag = r.enabled
+      ? `<span class="tag t-ok">启用</span>`
+      : `<span class="tag t-off">已吊销</span>`;
+    const toggle = r.enabled
+      ? `<button class="revive-btn" data-revoke="${i}">吊销</button>`
+      : `<button class="revive-btn" data-enable="${i}">恢复</button>`;
+    // config 源没有「删除」；生成源才有。
+    const del = r.source === 'config'
+      ? `<button class="del-btn" disabled title="config 里的 key 删不掉（下次启动会重新读入），请用吊销">删除</button>`
+      : `<button class="del-btn" data-delkey="${i}">删除</button>`;
+    return `<tr>
+      <td>${keyCell} ${eye} <button class="detail-toggle" data-copykey="${i}">复制</button></td>
+      <td>${r.name ? keyEsc(r.name) : '<span class="sub2">—</span>'}</td>
+      <td>${srcTag}</td>
+      <td>${stTag}</td>
+      <td class="right" style="white-space:nowrap">${toggle} ${del}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty">暂无 API Key（当前不鉴权，任何人可调用）</td></tr>';
+}
+
+// loadKeys 拉取 key 列表并刷新表格。
+async function loadKeys() {
+  try {
+    const j = await jget('api/keys');
+    keyRows = j.keys || [];
+    // key 可能已被别处删除，清掉已展开集合里的失效项（避免集合无限增长）。
+    const live = new Set(keyRows.map(r => r.key));
+    for (const k of Array.from(keyRevealed)) if (!live.has(k)) keyRevealed.delete(k);
+
+    // 「从未配置 key」= 完全不鉴权。这是公网部署的严重风险，显式红字提醒。
+    if (j.unconfigured) {
+      $('#keyWarn').classList.remove('hidden');
+      $('#keyWarn').innerHTML = '<b>⚠ 当前未配置任何 API Key —— 网关不鉴权，任何人可调用</b><br>' +
+        '若端口对公网开放，请立即生成一个 Key。生成后本提示自动消失。';
+    } else {
+      $('#keyWarn').classList.add('hidden');
+    }
+    $('#keyInfo').textContent = j.unconfigured
+      ? ''
+      : `${j.enabled} / ${j.total} 个 Key 处于启用状态`;
+    renderKeys();
+  } catch (e) {
+    $('#keyInfo').innerHTML = '<span class="add-err">加载失败: ' + esc(e.message) + '</span>';
+  }
+}
+
+// copyText 复制到剪贴板，回退方案兼容非 HTTPS / 旧浏览器
+// （看板常在内网 http 下访问，navigator.clipboard 在非安全上下文不可用）。
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    throw new Error('insecure');
+  } catch (e) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch (e2) { return false; }
+  }
+}
+
+async function generateKey() {
+  const btn = $('#keyGenBtn');
+  const name = ($('#keyName').value || '').trim();
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = '生成中…';
+  try {
+    const j = await jpost('api/keys', { name });
+    const k = j.key;
+    if (!k) throw new Error('响应缺少 key');
+    // 新 key 自动展开 + 自动复制：刚生成就是要立刻用。
+    keyRevealed.add(k.key);
+    const copied = await copyText(k.key);
+    $('#keyName').value = '';
+    $('#keyInfo').innerHTML = copied
+      ? '<span class="add-ok">✓ 已生成并复制到剪贴板</span>（请妥善保存）'
+      : '<span class="add-ok">✓ 已生成</span>（自动复制失败，请点「复制」）';
+    await loadKeys();
+  } catch (e) {
+    $('#keyInfo').innerHTML = '<span class="add-err">生成失败: ' + esc(e.message) + '</span>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+}
+
+if ($('#keyGenBtn')) $('#keyGenBtn').addEventListener('click', generateKey);
+if ($('#keyName')) $('#keyName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') generateKey();
+});
+
+// 表格操作走事件委托（行会随刷新重建，逐行绑定会失效）。
+if ($('#keyBody')) $('#keyBody').addEventListener('click', async e => {
+  const eye = e.target.closest('[data-eye]');
+  if (eye) {
+    const r = keyRows[+eye.dataset.eye];
+    if (r) { keyRevealed.has(r.key) ? keyRevealed.delete(r.key) : keyRevealed.add(r.key); renderKeys(); }
+    return;
+  }
+  const cp = e.target.closest('[data-copykey]');
+  if (cp) {
+    const r = keyRows[+cp.dataset.copykey];
+    if (!r) return;
+    const ok = await copyText(r.key);
+    cp.textContent = ok ? '已复制' : '复制失败';
+    setTimeout(() => { cp.textContent = '复制'; }, 1500);
+    return;
+  }
+  const rv = e.target.closest('[data-revoke]');
+  if (rv) {
+    const r = keyRows[+rv.dataset.revoke];
+    if (!r) return;
+    if (!confirm('吊销后该 Key 立即失效，正在使用它的客户端会收到 401。\n\n确定吊销吗？')) return;
+    try {
+      await fetch(apiURL('api/keys/' + encodeURIComponent(r.key) + '/disable'), { method: 'POST' });
+      await loadKeys();
+    } catch (err) { $('#keyInfo').innerHTML = '<span class="add-err">吊销失败: ' + esc(err.message) + '</span>'; }
+    return;
+  }
+  const en = e.target.closest('[data-enable]');
+  if (en) {
+    const r = keyRows[+en.dataset.enable];
+    if (!r) return;
+    try {
+      await fetch(apiURL('api/keys/' + encodeURIComponent(r.key) + '/enable'), { method: 'POST' });
+      await loadKeys();
+    } catch (err) { $('#keyInfo').innerHTML = '<span class="add-err">恢复失败: ' + esc(err.message) + '</span>'; }
+    return;
+  }
+  const dl = e.target.closest('[data-delkey]');
+  if (dl) {
+    const r = keyRows[+dl.dataset.delkey];
+    if (!r) return;
+    if (!confirm('删除后该 Key 立即失效且不会出现在列表里。\n\n确定删除吗？')) return;
+    try {
+      const resp = await fetch(apiURL('api/keys/' + encodeURIComponent(r.key)), { method: 'DELETE' });
+      if (!resp.ok) {
+        let msg = 'HTTP ' + resp.status;
+        try { const b = await resp.json(); if (b && b.error) msg = b.error.message || b.error; } catch (e2) {}
+        throw new Error(msg);
+      }
+      keyRevealed.delete(r.key);
+      await loadKeys();
+    } catch (err) { $('#keyInfo').innerHTML = '<span class="add-err">删除失败: ' + esc(err.message) + '</span>'; }
+  }
+});
+
+// 页面加载时拉一次 key 列表。
+loadKeys();
+
+// ===========================================================================
+// 定时任务开关（签到 / 猫猫旅行 / 活跃上报 / Token 保活）
+//
+// 交互要点：
+//   - 切换后**立即生效**（后端唤醒调度器重算），故切完即刷新状态回显；
+//   - 后端会把开关写回 config.json；写盘失败时如实提示"仅内存生效"，
+//     否则用户重启后发现开关"自己变回去了"会以为有 bug；
+//   - 请求期间禁用该行开关，避免连点导致状态与后端不一致。
+// ===========================================================================
+function renderSchedule(tasks) {
+  const on = tasks.filter(t => t.enabled).length;
+  $('#schedCount').textContent = tasks.length ? `(${on}/${tasks.length} 启用)` : '';
+  $('#schedBody').innerHTML = tasks.length ? tasks.map(t => {
+    const hours = (t.hours || []).length
+      ? t.hours.join(':00 · ') + ':00'
+      : '<span class="sub2">—</span>';
+    return `<tr>
+      <td><b>${keyEsc(t.name)}</b>
+        <div class="sub2" style="font-size:11px">${keyEsc(t.key)}</div></td>
+      <td class="sched-hours">${hours}</td>
+      <td>${t.enabled
+        ? '<span class="tag t-ok">已启用</span>'
+        : '<span class="tag t-off">已禁用</span>'}</td>
+      <td class="right">
+        <label class="sw" title="${t.enabled ? '点击禁用' : '点击启用'}">
+          <input type="checkbox" data-sched="${keyEsc(t.key)}" ${t.enabled ? 'checked' : ''}>
+          <span class="slider"></span>
+        </label>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="4" class="empty">调度器未启用</td></tr>';
+}
+
+async function loadSchedule() {
+  try {
+    const j = await jget('api/schedule');
+    renderSchedule(j.tasks || []);
+    $('#schedInfo').textContent = '';
+  } catch (e) {
+    // 501 = 未注入调度器（如只跑协议端点的最小部署），提示而非报错刷屏。
+    $('#schedInfo').innerHTML = /501/.test(e.message || '')
+      ? '<span class="sub2">当前部署未启用调度器</span>'
+      : '<span class="add-err">加载失败: ' + esc(e.message) + '</span>';
+  }
+}
+
+if ($('#schedRefreshBtn')) $('#schedRefreshBtn').addEventListener('click', loadSchedule);
+
+// 开关事件走委托：行会随刷新重建。
+if ($('#schedBody')) $('#schedBody').addEventListener('change', async e => {
+  const cb = e.target.closest('[data-sched]');
+  if (!cb) return;
+  const key = cb.dataset.sched;
+  const want = cb.checked;
+  cb.disabled = true;
+  try {
+    const r = await fetch(apiURL('api/schedule/' + encodeURIComponent(key)), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: want }),
+    });
+    let data = null;
+    try { data = await r.json(); } catch (e2) { /* 非 JSON */ }
+    if (!r.ok) {
+      const msg = (data && data.error && (data.error.message || data.error)) || ('HTTP ' + r.status);
+      throw new Error(msg);
+    }
+    const name = ({ checkin: '签到', travel: '猫猫旅行', activity: '活跃上报', keepalive: 'Token 保活' })[key] || key;
+    let txt = `✓ ${name}已${want ? '启用' : '禁用'}`;
+    if (data && data.persisted === false) {
+      // 关键诚实：内存已生效但没落盘，重启会回退。必须说清楚。
+      txt += `（仅内存生效：${data.persist_error || '未写回配置文件'}，重启后会回到原值）`;
+      $('#schedInfo').innerHTML = '<span style="color:var(--warn)">' + esc(txt) + '</span>';
+    } else {
+      $('#schedInfo').innerHTML = '<span class="add-ok">' + esc(txt) + '</span>';
+    }
+    await loadSchedule();
+  } catch (err) {
+    // 失败：把开关拨回原状，避免界面与后端不一致。
+    cb.checked = !want;
+    cb.disabled = false;
+    $('#schedInfo').innerHTML = '<span class="add-err">切换失败: ' + esc(err.message) + '</span>';
+  }
+});
+
+loadSchedule();
+</script>
+</body>
+</html>

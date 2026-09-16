@@ -1,0 +1,18 @@
+services:
+  wb2api:
+    build: .
+    container_name: workbuddy2api
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      # 内置看板凭据（可选）。两者都设上才会启用看板：浏览器访问
+      # http://<host>:57863/ 会弹登录框。留空则退化为纯 API 网关。
+      # 建议放 .env（已在 .gitignore 忽略），不要把密码写进本文件。
+      - WB2A_DASHBOARD_USER=${WB2A_DASHBOARD_USER:-}
+      - WB2A_DASHBOARD_PASS=${WB2A_DASHBOARD_PASS:-}
+    ports:
+      - "57863:7863"
+    volumes:
+      - ./auths:/app/auths
+      - ./data:/app/data
+      - ./config.json:/app/config.json

@@ -1,0 +1,59 @@
+# Auth & secrets
+auths/
+data/
+*.key
+*.pem
+*.env
+.env
+.env.*
+# 模板必须进版本库（否则克隆后无处复制；README 指引依赖它）
+!.env.example
+
+# Binaries (anchored to repo root only — bare "login"/"credit" would also ignore cmd/login/, cmd/credit/)
+/login
+/credit
+/wb2api
+/signin_bin
+# 本地调试二进制（dev.sh / dev.ps1 产物，含 Windows 的 ~ 备份）
+/wb2api_dev
+/wb2api_dev.exe
+/wb2api_dev.exe~
+# 根目录裸 exe（直接 `go build ./cmd/xxx` 不指定 -o 时的产物，
+# 名字随包名而变：server.exe / credit.exe / signin.exe…），一律不入库
+/*.exe
+/*.exe~
+
+# Config with secrets (use config.example.json)
+config.json
+# 本地调试配置（含弱口令，仅本机 127.0.0.1 使用）
+config.dev.json
+# 安装向导写回后的配置备份（reset-dev.ps1 生成，含真实凭据）
+config.dev.json.installed
+
+# Build artifacts
+*.tmp
+__pycache__/
+# 本地 exe 构建产物（build.ps1 输出，约 32MB，不进版本库）
+/dist/
+
+# Backups (contains auth tokens)
+backups/
+
+# IDE
+.idea/
+.vscode/
+LOOP.md
+PLAN.md
+SPEC.md
+docs/
+
+# 设计/计划文档（但 README.md 必须进版本库）
+*.md
+!README.md
+# 例外：被 go:embed 引用的 .md 必须进版本库，否则克隆后编译直接失败
+# （internal/prompt/prompt.go 里 `//go:embed defaultprompt.md`）。
+# 通配 *.md 会连它一起忽略——这是"文件在本地存在、提交里却没有"的隐蔽陷阱。
+!internal/prompt/defaultprompt.md
+
+# Local API key helper (contains secret)
+.apikey
